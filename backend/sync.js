@@ -18,36 +18,19 @@ function tmQ() {
 }
 
 let synced = 0;
-async function save(k,t,ti,ot,ov,po,ba,ra,ye,du,ge,st,sn,ep,mi,tm,so,ca) {
-  try {
-    const existing = await ContentCache.findOne({ content_key: k });
-    if (existing) return; // already in DB for this category
-    
-    await ContentCache.create({
-      content_key: k,
-      type: t,
-      title: ti,
-      original_title: ot || ti,
-      overview: ov || '',
-      poster: po || null,
-      backdrop: ba || null,
-      rating: ra || 0,
-      year: ye || '',
-      duration: du || null,
-      genres: ge || '',
-      status: st || '',
-      number_of_seasons: sn || null,
-      number_of_episodes: ep || null,
-      mal_id: mi || null,
-      tmdb_id: tm || null,
-      source: so,
-      category: ca,
-      synced_at: new Date()
-    });
-    synced++;
-  } catch (err) {
-    // ignore dup keys or errors
-  }
+function save(k,t,ti,ot,ov,po,ba,ra,ye,du,ge,st,sn,ep,mi,tm,so,ca) {
+  return ContentCache.updateOne(
+    { content_key: k },
+    { $setOnInsert: {
+        type: t, title: ti, original_title: ot || ti, overview: ov || '',
+        poster: po || null, backdrop: ba || null, rating: ra || 0, year: ye || '',
+        duration: du || null, genres: ge || '', status: st || '',
+        number_of_seasons: sn || null, number_of_episodes: ep || null,
+        mal_id: mi || null, tmdb_id: tm || null, source: so, category: ca, synced_at: new Date()
+      }
+    },
+    { upsert: true }
+  ).then((res) => { if (res.upsertedCount > 0) synced++; }).catch(() => {});
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -66,19 +49,21 @@ async function tmdbList(path, type, cat, maxPages) {
       const d = await r.json();
       const items = d.results || [];
       if (items.length === 0) break;
+      const promises = [];
       for (const i of items) {
         const key = `${type}-${i.id}-${cat}`;
         const title = i.title || i.name || '';
         const orig = i.original_title || i.original_name || title;
         const year = (i.release_date || i.first_air_date || '').slice(0, 4);
-        await save(key, type, title, orig, i.overview || '',
+        promises.push(save(key, type, title, orig, i.overview || '',
           i.poster_path ? TMDB_IMG + i.poster_path : null,
           i.backdrop_path ? TMDB_BG + i.backdrop_path : null,
           i.vote_average || 0, year, i.runtime || null,
           '', i.status || '', i.number_of_seasons || null,
-          i.number_of_episodes || null, null, i.id, 'tmdb', cat);
+          i.number_of_episodes || null, null, i.id, 'tmdb', cat));
         total++;
       }
+      await Promise.all(promises);
       if (p % 5 === 0) console.log(`    ${path} p${p}: ${total}`);
       await sleep(250);
     } catch (e) { await sleep(1000); }
@@ -97,19 +82,21 @@ async function tmdbDiscover(params, type, cat, maxPages) {
       const d = await r.json();
       const items = d.results || [];
       if (items.length === 0) break;
+      const promises = [];
       for (const i of items) {
         const key = `${type}-${i.id}-${cat}`;
         const title = i.title || i.name || '';
         const orig = i.original_title || i.original_name || title;
         const year = (i.release_date || i.first_air_date || '').slice(0, 4);
-        await save(key, type, title, orig, i.overview || '',
+        promises.push(save(key, type, title, orig, i.overview || '',
           i.poster_path ? TMDB_IMG + i.poster_path : null,
           i.backdrop_path ? TMDB_BG + i.backdrop_path : null,
           i.vote_average || 0, year, i.runtime || null,
           '', i.status || '', i.number_of_seasons || null,
-          i.number_of_episodes || null, null, i.id, 'tmdb', cat);
+          i.number_of_episodes || null, null, i.id, 'tmdb', cat));
         total++;
       }
+      await Promise.all(promises);
       if (p % 5 === 0) console.log(`    discover/${type} p${p}: ${total}`);
       await sleep(250);
     } catch (e) { await sleep(1000); }
@@ -197,17 +184,19 @@ async function syncAll() {
         const d = await r.json();
         const items = d.data || [];
         if (items.length === 0) break;
+        const promises = [];
         for (const a of items) {
           const key = `anime-${a.mal_id}-${cat}`;
           const title = a.title_english || a.title || '';
           const year = a.year ? String(a.year) : (a.aired?.from ? a.aired.from.slice(0,4) : '');
-          await save(key, 'anime', title, a.title||title, a.synopsis||'',
+          promises.push(save(key, 'anime', title, a.title||title, a.synopsis||'',
             a.images?.jpg?.large_image_url || a.images?.jpg?.image_url || null, null,
             a.score||0, year, a.episodes||null,
             (a.genres||[]).map(g=>g.name).join(', '), a.status||'',
-            null, a.episodes||null, a.mal_id, null, 'jikan', cat);
+            null, a.episodes||null, a.mal_id, null, 'jikan', cat));
           total++;
         }
+        await Promise.all(promises);
         await sleep(1200);
       } catch (e) { await sleep(3000); }
     }
