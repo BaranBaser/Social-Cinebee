@@ -116,7 +116,7 @@ router.get('/trending', async (req, res) => {
     });
   } catch (e) {
     console.error('Trending error:', e);
-    res.status(500).json({ error: 'Icerik alinamadi.' });
+    res.status(500).json({ error: 'Icerik alinamadi.', details: e.message, stack: e.stack });
   }
 });
 
