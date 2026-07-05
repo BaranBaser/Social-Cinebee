@@ -95,3 +95,4 @@ cinemaai-social/
       context/           # AuthContext
       lib/               # api.js (axios), socket.js
 ```
+
