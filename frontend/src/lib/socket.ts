@@ -6,7 +6,8 @@ let socket: Socket | null = null;
 
 export function connectSocket(token: string): Socket {
   if (socket) socket.disconnect();
-  socket = io({ auth: { token } });
+  const url = process.env.NEXT_PUBLIC_API_URL || '';
+  socket = io(url, { auth: { token } });
   return socket;
 }
 
