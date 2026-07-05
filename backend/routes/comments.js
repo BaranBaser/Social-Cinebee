@@ -1,107 +1,130 @@
 const express = require('express');
-const db = require('../db');
+const { Comment, Rating } = require('../db');
 const { requireAuth, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-function commentOut(row) {
+function commentOut(c) {
   return {
-    id: row.id,
-    body: row.is_removed ? '[Bu yorum kaldırıldı]' : row.body,
-    is_removed: !!row.is_removed,
-    parent_id: row.parent_id,
-    created_at: row.created_at,
-    user: { id: row.user_id, username: row.username, avatar_url: row.avatar_url },
+    id: c._id,
+    body: c.is_removed ? '[Bu yorum kaldırıldı]' : c.body,
+    is_removed: !!c.is_removed,
+    parent_id: c.parent_id,
+    created_at: c.created_at,
+    user: c.user_id ? { id: c.user_id._id, username: c.user_id.username, avatar_url: c.user_id.avatar_url } : null,
   };
 }
 
 // GET /api/comments?content_key=movie-550
-router.get('/', optionalAuth, (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
   const contentKey = (req.query.content_key || '').toString();
   if (!contentKey) return res.status(400).json({ error: 'content_key gerekli.' });
 
-  const rows = db
-    .prepare(
-      `SELECT c.*, u.username, u.avatar_url FROM comments c
-       JOIN users u ON u.id = c.user_id
-       WHERE c.content_key = ?
-       ORDER BY c.created_at ASC`
-    )
-    .all(contentKey);
+  try {
+    const comments = await Comment.find({ content_key: contentKey })
+      .populate('user_id', 'username avatar_url')
+      .sort({ created_at: 1 });
 
-  const avg = db
-    .prepare(`SELECT AVG(score) as avg, COUNT(*) as count FROM ratings WHERE content_key = ?`)
-    .get(contentKey);
+    const avgResult = await Rating.aggregate([
+      { $match: { content_key: contentKey } },
+      { $group: { _id: null, avg: { $avg: '$score' }, count: { $sum: 1 } } }
+    ]);
+    
+    const avg = avgResult.length > 0 ? avgResult[0] : { avg: 0, count: 0 };
 
-  let myRating = null;
-  if (req.user) {
-    const r = db
-      .prepare(`SELECT score FROM ratings WHERE content_key = ? AND user_id = ?`)
-      .get(contentKey, req.user.id);
-    myRating = r ? r.score : null;
+    let myRating = null;
+    if (req.user) {
+      const r = await Rating.findOne({ content_key: contentKey, user_id: req.user._id });
+      myRating = r ? r.score : null;
+    }
+
+    res.json({
+      comments: comments.map(commentOut),
+      rating: { average: avg.avg ? Number(avg.avg.toFixed(1)) : 0, count: avg.count, mine: myRating },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Yorumlar getirilemedi.' });
   }
-
-  res.json({
-    comments: rows.map(commentOut),
-    rating: { average: avg.avg ? Number(avg.avg.toFixed(1)) : 0, count: avg.count, mine: myRating },
-  });
 });
 
 // POST /api/comments  { content_key, content_title, content_type, body, parent_id? }
-router.post('/', requireAuth, (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   const { content_key, content_title, content_type, body, parent_id } = req.body || {};
   if (!content_key || !body || !body.trim()) {
     return res.status(400).json({ error: 'content_key ve yorum metni gerekli.' });
   }
-  const info = db
-    .prepare(
-      `INSERT INTO comments (user_id, content_key, content_title, content_type, parent_id, body)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    )
-    .run(req.user.id, content_key, content_title || null, content_type || null, parent_id || null, body.trim());
 
-  const row = db
-    .prepare(
-      `SELECT c.*, u.username, u.avatar_url FROM comments c JOIN users u ON u.id=c.user_id WHERE c.id = ?`
-    )
-    .get(info.lastInsertRowid);
-  res.json({ comment: commentOut(row) });
+  try {
+    const newComment = await Comment.create({
+      user_id: req.user._id,
+      content_key,
+      content_title: content_title || null,
+      content_type: content_type || null,
+      parent_id: parent_id || null,
+      body: body.trim()
+    });
+
+    const populated = await Comment.findById(newComment._id).populate('user_id', 'username avatar_url');
+    res.json({ comment: commentOut(populated) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Yorum gönderilemedi.' });
+  }
 });
 
 // DELETE /api/comments/:id  (yazan kişi veya admin silebilir)
-router.delete('/:id', requireAuth, (req, res) => {
-  const row = db.prepare('SELECT * FROM comments WHERE id = ?').get(req.params.id);
-  if (!row) return res.status(404).json({ error: 'Yorum bulunamadı.' });
-  if (row.user_id !== req.user.id && req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Bu yorumu silme yetkiniz yok.' });
+router.delete('/:id', requireAuth, async (req, res) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+    if (!comment) return res.status(404).json({ error: 'Yorum bulunamadı.' });
+    
+    if (comment.user_id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Bu yorumu silme yetkiniz yok.' });
+    }
+    
+    comment.is_removed = true;
+    await comment.save();
+    
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Yorum silinemedi.' });
   }
-  db.prepare('UPDATE comments SET is_removed = 1 WHERE id = ?').run(req.params.id);
-  res.json({ ok: true });
 });
 
 // POST /api/comments/rate  { content_key, content_title, content_type, score }
-router.post('/rate', requireAuth, (req, res) => {
+router.post('/rate', requireAuth, async (req, res) => {
   const { content_key, content_title, content_type, score } = req.body || {};
   const s = Number(score);
   if (!content_key || !s || s < 1 || s > 10) {
     return res.status(400).json({ error: 'content_key ve 1-10 arası puan gerekli.' });
   }
-  db.prepare(
-    `INSERT INTO ratings (user_id, content_key, content_title, content_poster, content_type, score)
-     VALUES (@user_id, @content_key, @content_title, NULL, @content_type, @score)
-     ON CONFLICT(user_id, content_key) DO UPDATE SET score = excluded.score`
-  ).run({
-    user_id: req.user.id,
-    content_key,
-    content_title: content_title || null,
-    content_type: content_type || null,
-    score: s,
-  });
 
-  const avg = db
-    .prepare(`SELECT AVG(score) as avg, COUNT(*) as count FROM ratings WHERE content_key = ?`)
-    .get(content_key);
-  res.json({ rating: { average: Number(avg.avg.toFixed(1)), count: avg.count, mine: s } });
+  try {
+    await Rating.findOneAndUpdate(
+      { user_id: req.user._id, content_key },
+      { 
+        user_id: req.user._id, 
+        content_key, 
+        content_title: content_title || null, 
+        content_type: content_type || null, 
+        score: s 
+      },
+      { upsert: true, new: true }
+    );
+
+    const avgResult = await Rating.aggregate([
+      { $match: { content_key } },
+      { $group: { _id: null, avg: { $avg: '$score' }, count: { $sum: 1 } } }
+    ]);
+    const avg = avgResult.length > 0 ? avgResult[0] : { avg: 0, count: 0 };
+
+    res.json({ rating: { average: Number(avg.avg.toFixed(1)), count: avg.count, mine: s } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Puan verilemedi.' });
+  }
 });
 
 module.exports = router;

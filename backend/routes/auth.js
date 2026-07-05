@@ -1,18 +1,18 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../db');
+const { User } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
 function signToken(user) {
-  return jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+  return jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 }
 
 function publicUser(u) {
   return {
-    id: u.id,
+    id: u._id,
     username: u.username,
     email: u.email,
     bio: u.bio,
@@ -22,7 +22,7 @@ function publicUser(u) {
   };
 }
 
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res) => {
   const { username, email, password } = req.body || {};
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'Kullanıcı adı, e-posta ve şifre gerekli.' });
@@ -33,73 +33,92 @@ router.post('/register', (req, res) => {
   const usernameClean = String(username).trim();
   const emailClean = String(email).trim().toLowerCase();
 
-  const exists = db
-    .prepare('SELECT id FROM users WHERE email = ? OR username = ?')
-    .get(emailClean, usernameClean);
-  if (exists) {
-    return res.status(409).json({ error: 'Bu kullanıcı adı veya e-posta zaten kayıtlı.' });
+  try {
+    const exists = await User.findOne({
+      $or: [{ email: emailClean }, { username: usernameClean }]
+    });
+    if (exists) {
+      return res.status(409).json({ error: 'Bu kullanıcı adı veya e-posta zaten kayıtlı.' });
+    }
+
+    const hash = bcrypt.hashSync(password, 10);
+    const user = await User.create({
+      username: usernameClean,
+      email: emailClean,
+      password_hash: hash
+    });
+
+    const token = signToken(user);
+    res.json({ token, user: publicUser(user) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Kayıt olurken bir hata oluştu.' });
   }
-
-  const hash = bcrypt.hashSync(password, 10);
-  const info = db
-    .prepare('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)')
-    .run(usernameClean, emailClean, hash);
-
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
-  const token = signToken(user);
-  res.json({ token, user: publicUser(user) });
 });
 
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'E-posta ve şifre gerekli.' });
 
-  const user = db
-    .prepare('SELECT * FROM users WHERE email = ?')
-    .get(String(email).trim().toLowerCase());
-  if (!user) return res.status(401).json({ error: 'E-posta veya şifre hatalı.' });
-  if (user.is_banned) return res.status(403).json({ error: 'Hesabınız askıya alınmış.' });
+  try {
+    const user = await User.findOne({ email: String(email).trim().toLowerCase() });
+    if (!user) return res.status(401).json({ error: 'E-posta veya şifre hatalı.' });
+    if (user.is_banned) return res.status(403).json({ error: 'Hesabınız askıya alınmış.' });
 
-  const ok = bcrypt.compareSync(password, user.password_hash);
-  if (!ok) return res.status(401).json({ error: 'E-posta veya şifre hatalı.' });
+    const ok = bcrypt.compareSync(password, user.password_hash);
+    if (!ok) return res.status(401).json({ error: 'E-posta veya şifre hatalı.' });
 
-  const token = signToken(user);
-  res.json({ token, user: publicUser(user) });
+    const token = signToken(user);
+    res.json({ token, user: publicUser(user) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Giriş yaparken bir hata oluştu.' });
+  }
 });
 
 router.get('/me', requireAuth, (req, res) => {
   res.json({ user: publicUser(req.user) });
 });
 
-router.put('/me', requireAuth, (req, res) => {
+router.put('/me', requireAuth, async (req, res) => {
   const { bio, avatar_url } = req.body || {};
-  db.prepare('UPDATE users SET bio = ?, avatar_url = ? WHERE id = ?').run(
-    bio ?? req.user.bio,
-    avatar_url ?? req.user.avatar_url,
-    req.user.id
-  );
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
-  res.json({ user: publicUser(user) });
+  try {
+    req.user.bio = bio ?? req.user.bio;
+    req.user.avatar_url = avatar_url ?? req.user.avatar_url;
+    await req.user.save();
+    
+    res.json({ user: publicUser(req.user) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Profil güncellenemedi.' });
+  }
 });
 
 // Sohbet için kullanıcı arama/listeleme
-router.get('/users', requireAuth, (req, res) => {
+router.get('/users', requireAuth, async (req, res) => {
   const q = (req.query.q || '').toString().trim();
-  let rows;
-  if (q) {
-    rows = db
-      .prepare(
-        `SELECT id, username, avatar_url FROM users WHERE username LIKE ? AND id != ? AND is_banned = 0 LIMIT 20`
-      )
-      .all(`%${q}%`, req.user.id);
-  } else {
-    rows = db
-      .prepare(
-        `SELECT id, username, avatar_url FROM users WHERE id != ? AND is_banned = 0 ORDER BY created_at DESC LIMIT 20`
-      )
-      .all(req.user.id);
+  try {
+    let query = { _id: { $ne: req.user._id }, is_banned: false };
+    if (q) {
+      query.username = new RegExp(q, 'i');
+    }
+    
+    const users = await User.find(query)
+      .select('_id username avatar_url')
+      .sort({ created_at: -1 })
+      .limit(20);
+
+    const mappedUsers = users.map(u => ({
+      id: u._id,
+      username: u.username,
+      avatar_url: u.avatar_url
+    }));
+
+    res.json({ users: mappedUsers });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Kullanıcılar alınamadı.' });
   }
-  res.json({ users: rows });
 });
 
 module.exports = router;

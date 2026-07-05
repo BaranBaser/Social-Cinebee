@@ -1,6 +1,6 @@
 const express = require('express');
 const fetch = require('node-fetch');
-const db = require('../db');
+// DB is not used here
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();

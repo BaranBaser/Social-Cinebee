@@ -1,145 +1,172 @@
-const { DatabaseSync } = require('node:sqlite');
-const path = require('path');
+const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'data.sqlite');
-const rawDb = new DatabaseSync(DB_PATH);
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/cinemaai';
 
-rawDb.exec('PRAGMA journal_mode = WAL');
-rawDb.exec('PRAGMA foreign_keys = ON');
+mongoose.connect(MONGODB_URI)
+.then(() => console.log('MongoDB baglantisi basarili.'))
+.catch(err => console.error('MongoDB baglanti hatasi:', err));
 
-const db = {
-  exec: (sql) => rawDb.exec(sql),
-  prepare: (sql) => rawDb.prepare(sql),
-};
+const userSchema = new mongoose.Schema({
+  username: { type: String, unique: true, required: true },
+  email: { type: String, unique: true, required: true },
+  password_hash: { type: String, required: true },
+  bio: { type: String, default: '' },
+  avatar_url: { type: String, default: '' },
+  role: { type: String, default: 'user' },
+  is_banned: { type: Boolean, default: false },
+  created_at: { type: Date, default: Date.now }
+});
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT UNIQUE NOT NULL,
-  email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  bio TEXT DEFAULT '',
-  avatar_url TEXT DEFAULT '',
-  role TEXT NOT NULL DEFAULT 'user',
-  is_banned INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+const ratingSchema = new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  content_key: { type: String, required: true },
+  content_title: String,
+  content_poster: String,
+  content_type: String,
+  score: { type: Number, required: true, min: 1, max: 10 },
+  created_at: { type: Date, default: Date.now }
+});
+ratingSchema.index({ user_id: 1, content_key: 1 }, { unique: true });
+ratingSchema.index({ content_key: 1 });
 
-CREATE TABLE IF NOT EXISTS ratings (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  content_key TEXT NOT NULL,
-  content_title TEXT,
-  content_poster TEXT,
-  content_type TEXT,
-  score INTEGER NOT NULL CHECK (score BETWEEN 1 AND 10),
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE(user_id, content_key)
-);
+const commentSchema = new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  content_key: { type: String, required: true },
+  content_title: String,
+  content_type: String,
+  parent_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Comment' },
+  body: { type: String, required: true },
+  is_removed: { type: Boolean, default: false },
+  created_at: { type: Date, default: Date.now }
+});
+commentSchema.index({ content_key: 1 });
 
-CREATE TABLE IF NOT EXISTS comments (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  content_key TEXT NOT NULL,
-  content_title TEXT,
-  content_type TEXT,
-  parent_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
-  body TEXT NOT NULL,
-  is_removed INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+const chatRoomSchema = new mongoose.Schema({
+  name: { type: String, unique: true, required: true },
+  content_key: String,
+  created_at: { type: Date, default: Date.now }
+});
 
-CREATE TABLE IF NOT EXISTS chat_rooms (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT UNIQUE NOT NULL,
-  content_key TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+const roomMessageSchema = new mongoose.Schema({
+  room_id: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatRoom', required: true },
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  body: { type: String, required: true },
+  created_at: { type: Date, default: Date.now }
+});
+roomMessageSchema.index({ room_id: 1 });
 
-CREATE TABLE IF NOT EXISTS room_messages (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  room_id INTEGER NOT NULL REFERENCES chat_rooms(id) ON DELETE CASCADE,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  body TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+const dmMessageSchema = new mongoose.Schema({
+  sender_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  receiver_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  body: { type: String, required: true },
+  is_read: { type: Boolean, default: false },
+  created_at: { type: Date, default: Date.now }
+});
+dmMessageSchema.index({ sender_id: 1, receiver_id: 1 });
 
-CREATE TABLE IF NOT EXISTS dm_messages (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  body TEXT NOT NULL,
-  is_read INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+const librarySchema = new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  content_key: { type: String, required: true },
+  content_title: String,
+  content_poster: String,
+  content_type: String,
+  status: { type: String, default: 'watched' },
+  created_at: { type: Date, default: Date.now }
+});
+librarySchema.index({ user_id: 1, content_key: 1 }, { unique: true });
+librarySchema.index({ user_id: 1, status: 1 });
 
-CREATE TABLE IF NOT EXISTS library (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  content_key TEXT NOT NULL,
-  content_title TEXT,
-  content_poster TEXT,
-  content_type TEXT,
-  status TEXT NOT NULL DEFAULT 'watched',
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE(user_id, content_key)
-);
+const contentCacheSchema = new mongoose.Schema({
+  content_key: { type: String, unique: true, required: true },
+  type: { type: String, required: true },
+  title: { type: String, required: true },
+  original_title: String,
+  overview: String,
+  poster: String,
+  backdrop: String,
+  rating: { type: Number, default: 0 },
+  year: String,
+  duration: Number,
+  genres: String,
+  status: String,
+  number_of_seasons: Number,
+  number_of_episodes: Number,
+  mal_id: Number,
+  tmdb_id: Number,
+  source: { type: String, default: 'tmdb' },
+  category: { type: String, default: 'popular' },
+  synced_at: { type: Date, default: Date.now }
+});
+contentCacheSchema.index({ type: 1, category: 1 });
+contentCacheSchema.index({ source: 1 });
 
-CREATE INDEX IF NOT EXISTS idx_ratings_content ON ratings(content_key);
-CREATE INDEX IF NOT EXISTS idx_comments_content ON comments(content_key);
-CREATE INDEX IF NOT EXISTS idx_room_messages_room ON room_messages(room_id);
-CREATE INDEX IF NOT EXISTS idx_dm_pair ON dm_messages(sender_id, receiver_id);
-CREATE INDEX IF NOT EXISTS idx_library_user ON library(user_id);
-CREATE INDEX IF NOT EXISTS idx_library_status ON library(user_id, status);
+const postSchema = new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  content_key: String,
+  content_type: String,
+  content_title: String,
+  content_poster: String,
+  body: { type: String, default: '' },
+  score: Number,
+  status: String,
+  created_at: { type: Date, default: Date.now }
+});
+postSchema.index({ user_id: 1 });
+postSchema.index({ created_at: -1 });
 
-CREATE TABLE IF NOT EXISTS content_cache (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  content_key TEXT UNIQUE NOT NULL,
-  type TEXT NOT NULL,
-  title TEXT NOT NULL,
-  original_title TEXT,
-  overview TEXT,
-  poster TEXT,
-  backdrop TEXT,
-  rating REAL DEFAULT 0,
-  year TEXT,
-  duration INTEGER,
-  genres TEXT,
-  status TEXT,
-  number_of_seasons INTEGER,
-  number_of_episodes INTEGER,
-  mal_id INTEGER,
-  tmdb_id INTEGER,
-  source TEXT NOT NULL DEFAULT 'tmdb',
-  category TEXT NOT NULL DEFAULT 'popular',
-  synced_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+const postLikeSchema = new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  post_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', required: true },
+  created_at: { type: Date, default: Date.now }
+});
+postLikeSchema.index({ user_id: 1, post_id: 1 }, { unique: true });
+postLikeSchema.index({ post_id: 1 });
 
-CREATE INDEX IF NOT EXISTS idx_cache_type ON content_cache(type);
-CREATE INDEX IF NOT EXISTS idx_cache_category ON content_cache(type, category);
-CREATE INDEX IF NOT EXISTS idx_cache_source ON content_cache(source);
-`);
+const User = mongoose.model('User', userSchema);
+const Rating = mongoose.model('Rating', ratingSchema);
+const Comment = mongoose.model('Comment', commentSchema);
+const ChatRoom = mongoose.model('ChatRoom', chatRoomSchema);
+const RoomMessage = mongoose.model('RoomMessage', roomMessageSchema);
+const DmMessage = mongoose.model('DmMessage', dmMessageSchema);
+const Library = mongoose.model('Library', librarySchema);
+const ContentCache = mongoose.model('ContentCache', contentCacheSchema);
+const Post = mongoose.model('Post', postSchema);
+const PostLike = mongoose.model('PostLike', postLikeSchema);
 
-const generalRoom = db.prepare(`SELECT * FROM chat_rooms WHERE name = 'Genel Sohbet'`).get();
-if (!generalRoom) {
-  db.prepare(`INSERT INTO chat_rooms (name, content_key) VALUES ('Genel Sohbet', NULL)`).run();
-}
+// Ensure General Chat Room and Admin
+mongoose.connection.once('open', async () => {
+  try {
+    const generalRoom = await ChatRoom.findOne({ name: 'Genel Sohbet' });
+    if (!generalRoom) {
+      await ChatRoom.create({ name: 'Genel Sohbet' });
+    }
 
-function ensureAdmin() {
-  const email = process.env.ADMIN_EMAIL || 'admin@cinemaai.local';
-  const username = process.env.ADMIN_USERNAME || 'admin';
-  const password = process.env.ADMIN_PASSWORD || 'Admin123!';
+    const email = process.env.ADMIN_EMAIL || 'admin@cinemaai.local';
+    const username = process.env.ADMIN_USERNAME || 'admin';
+    const password = process.env.ADMIN_PASSWORD || 'Admin123!';
 
-  const existing = db.prepare(`SELECT * FROM users WHERE email = ?`).get(email);
-  if (!existing) {
-    const hash = bcrypt.hashSync(password, 10);
-    db.prepare(
-      `INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, 'admin')`
-    ).run(username, email, hash);
-    console.log(`Yonetici hesabi olusturuldu -> email: ${email} / sifre: ${password}`);
+    const existingAdmin = await User.findOne({ email });
+    if (!existingAdmin) {
+      const hash = bcrypt.hashSync(password, 10);
+      await User.create({ username, email, password_hash: hash, role: 'admin' });
+      console.log(`Yonetici hesabi olusturuldu -> email: ${email} / sifre: ${password}`);
+    }
+  } catch (err) {
+    console.error('Initial setup error:', err);
   }
-}
-ensureAdmin();
+});
 
-module.exports = db;
+module.exports = {
+  mongoose,
+  User,
+  Rating,
+  Comment,
+  ChatRoom,
+  RoomMessage,
+  DmMessage,
+  Library,
+  ContentCache,
+  Post,
+  PostLike
+};

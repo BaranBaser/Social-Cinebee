@@ -1,84 +1,131 @@
 const express = require('express');
-const db = require('../db');
+const { ChatRoom, RoomMessage, DmMessage, User } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
 // GET /api/chat/rooms
-router.get('/rooms', requireAuth, (req, res) => {
-  const rows = db.prepare('SELECT * FROM chat_rooms ORDER BY id ASC').all();
-  res.json({ rooms: rows });
+router.get('/rooms', requireAuth, async (req, res) => {
+  try {
+    const rooms = await ChatRoom.find().sort({ _id: 1 });
+    res.json({ rooms });
+  } catch (err) {
+    res.status(500).json({ error: 'Odalar getirilemedi.' });
+  }
 });
 
 // Bir içerik için oda yoksa oluşturur, varsa döner
 // POST /api/chat/rooms/for-content { content_key, name }
-router.post('/rooms/for-content', requireAuth, (req, res) => {
+router.post('/rooms/for-content', requireAuth, async (req, res) => {
   const { content_key, name } = req.body || {};
   if (!content_key || !name) return res.status(400).json({ error: 'content_key ve name gerekli.' });
 
-  let room = db.prepare('SELECT * FROM chat_rooms WHERE content_key = ?').get(content_key);
-  if (!room) {
-    const info = db
-      .prepare('INSERT INTO chat_rooms (name, content_key) VALUES (?, ?)')
-      .run(`${name} Sohbeti`, content_key);
-    room = db.prepare('SELECT * FROM chat_rooms WHERE id = ?').get(info.lastInsertRowid);
+  try {
+    let room = await ChatRoom.findOne({ content_key });
+    if (!room) {
+      room = await ChatRoom.create({ name: `${name} Sohbeti`, content_key });
+    }
+    res.json({ room });
+  } catch (err) {
+    res.status(500).json({ error: 'Oda oluşturulamadı.' });
   }
-  res.json({ room });
 });
 
 // GET /api/chat/rooms/:id/messages
-router.get('/rooms/:id/messages', requireAuth, (req, res) => {
-  const rows = db
-    .prepare(
-      `SELECT m.*, u.username, u.avatar_url FROM room_messages m
-       JOIN users u ON u.id = m.user_id
-       WHERE m.room_id = ? ORDER BY m.created_at ASC LIMIT 200`
-    )
-    .all(req.params.id);
-  res.json({
-    messages: rows.map((r) => ({
-      id: r.id,
-      body: r.body,
-      created_at: r.created_at,
-      user: { id: r.user_id, username: r.username, avatar_url: r.avatar_url },
-    })),
-  });
+router.get('/rooms/:id/messages', requireAuth, async (req, res) => {
+  try {
+    const messages = await RoomMessage.find({ room_id: req.params.id })
+      .populate('user_id', 'username avatar_url')
+      .sort({ created_at: 1 })
+      .limit(200);
+
+    res.json({
+      messages: messages.map((m) => ({
+        id: m._id,
+        body: m.body,
+        created_at: m.created_at,
+        user: m.user_id ? { id: m.user_id._id, username: m.user_id.username, avatar_url: m.user_id.avatar_url } : null,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Mesajlar getirilemedi.' });
+  }
 });
 
 // GET /api/chat/dm/:userId  -> iki kullanıcı arasındaki geçmiş
-router.get('/dm/:userId', requireAuth, (req, res) => {
-  const otherId = Number(req.params.userId);
-  const rows = db
-    .prepare(
-      `SELECT * FROM dm_messages
-       WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
-       ORDER BY created_at ASC LIMIT 200`
-    )
-    .all(req.user.id, otherId, otherId, req.user.id);
+router.get('/dm/:userId', requireAuth, async (req, res) => {
+  const otherId = req.params.userId;
+  const myId = req.user._id;
 
-  db.prepare(
-    `UPDATE dm_messages SET is_read = 1 WHERE sender_id = ? AND receiver_id = ?`
-  ).run(otherId, req.user.id);
+  try {
+    const messages = await DmMessage.find({
+      $or: [
+        { sender_id: myId, receiver_id: otherId },
+        { sender_id: otherId, receiver_id: myId }
+      ]
+    })
+    .sort({ created_at: 1 })
+    .limit(200);
 
-  res.json({ messages: rows });
+    await DmMessage.updateMany(
+      { sender_id: otherId, receiver_id: myId, is_read: false },
+      { $set: { is_read: true } }
+    );
+
+    res.json({ messages });
+  } catch (err) {
+    res.status(500).json({ error: 'DM mesajları getirilemedi.' });
+  }
 });
 
 // GET /api/chat/dm  -> konuşma listesi (son mesaja göre)
-router.get('/dm', requireAuth, (req, res) => {
-  const rows = db
-    .prepare(
-      `SELECT u.id, u.username, u.avatar_url,
-              (SELECT body FROM dm_messages d2 WHERE (d2.sender_id=u.id AND d2.receiver_id=?) OR (d2.sender_id=? AND d2.receiver_id=u.id) ORDER BY d2.created_at DESC LIMIT 1) as last_message,
-              (SELECT COUNT(*) FROM dm_messages d3 WHERE d3.sender_id = u.id AND d3.receiver_id = ? AND d3.is_read = 0) as unread
-       FROM users u
-       WHERE u.id IN (
-         SELECT sender_id FROM dm_messages WHERE receiver_id = ?
-         UNION
-         SELECT receiver_id FROM dm_messages WHERE sender_id = ?
-       )`
-    )
-    .all(req.user.id, req.user.id, req.user.id, req.user.id, req.user.id);
-  res.json({ conversations: rows });
+router.get('/dm', requireAuth, async (req, res) => {
+  const myId = req.user._id;
+
+  try {
+    // Tüm mesajlarımdan diğer kullanıcıları bul
+    const messages = await DmMessage.find({
+      $or: [{ sender_id: myId }, { receiver_id: myId }]
+    }).sort({ created_at: -1 });
+
+    const map = new Map();
+
+    for (const m of messages) {
+      const otherId = m.sender_id.toString() === myId.toString() ? m.receiver_id.toString() : m.sender_id.toString();
+      
+      if (!map.has(otherId)) {
+        map.set(otherId, {
+          userId: otherId,
+          last_message: m.body,
+          unread: 0,
+          created_at: m.created_at
+        });
+      }
+      
+      if (m.receiver_id.toString() === myId.toString() && !m.is_read) {
+        map.get(otherId).unread += 1;
+      }
+    }
+
+    const conversations = [];
+    for (const [otherId, data] of map.entries()) {
+      const u = await User.findById(otherId).select('username avatar_url');
+      if (u) {
+        conversations.push({
+          id: u._id,
+          username: u.username,
+          avatar_url: u.avatar_url,
+          last_message: data.last_message,
+          unread: data.unread
+        });
+      }
+    }
+
+    res.json({ conversations });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'DM listesi getirilemedi.' });
+  }
 });
 
 module.exports = router;

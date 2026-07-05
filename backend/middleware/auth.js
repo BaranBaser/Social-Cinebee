@@ -1,14 +1,14 @@
 const jwt = require('jsonwebtoken');
-const db = require('../db');
+const { User } = require('../db');
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'Giriş yapmanız gerekiyor.' });
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.id);
+    const user = await User.findById(payload.id);
     if (!user) return res.status(401).json({ error: 'Kullanıcı bulunamadı.' });
     if (user.is_banned) return res.status(403).json({ error: 'Hesabınız askıya alınmış.' });
     req.user = user;
@@ -25,14 +25,13 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// Token varsa kullanıcıyı ekler, yoksa sessizce devam eder (herkese açık uçlar için)
-function optionalAuth(req, res, next) {
+async function optionalAuth(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return next();
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.id);
+    const user = await User.findById(payload.id);
     if (user && !user.is_banned) req.user = user;
   } catch (e) {}
   next();

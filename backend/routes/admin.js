@@ -1,94 +1,121 @@
 const express = require('express');
-const db = require('../db');
+const { User, Comment, Rating, RoomMessage, DmMessage, ChatRoom } = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(requireAuth, requireAdmin);
 
 // GET /api/admin/stats
-router.get('/stats', (req, res) => {
-  const users = db.prepare('SELECT COUNT(*) c FROM users').get().c;
-  const comments = db.prepare('SELECT COUNT(*) c FROM comments WHERE is_removed = 0').get().c;
-  const ratings = db.prepare('SELECT COUNT(*) c FROM ratings').get().c;
-  const messages =
-    db.prepare('SELECT COUNT(*) c FROM room_messages').get().c +
-    db.prepare('SELECT COUNT(*) c FROM dm_messages').get().c;
-  const bannedUsers = db.prepare('SELECT COUNT(*) c FROM users WHERE is_banned = 1').get().c;
-  res.json({ users, comments, ratings, messages, bannedUsers });
+router.get('/stats', async (req, res) => {
+  try {
+    const users = await User.countDocuments();
+    const comments = await Comment.countDocuments({ is_removed: false });
+    const ratings = await Rating.countDocuments();
+    const roomMsgs = await RoomMessage.countDocuments();
+    const dmMsgs = await DmMessage.countDocuments();
+    const messages = roomMsgs + dmMsgs;
+    const bannedUsers = await User.countDocuments({ is_banned: true });
+    
+    res.json({ users, comments, ratings, messages, bannedUsers });
+  } catch (err) {
+    res.status(500).json({ error: 'İstatistikler alınamadı.' });
+  }
 });
 
 // GET /api/admin/users?q=
-router.get('/users', (req, res) => {
+router.get('/users', async (req, res) => {
   const q = (req.query.q || '').toString().trim();
-  let rows;
-  if (q) {
-    rows = db
-      .prepare(
-        `SELECT id, username, email, role, is_banned, created_at FROM users
-         WHERE username LIKE ? OR email LIKE ? ORDER BY created_at DESC`
-      )
-      .all(`%${q}%`, `%${q}%`);
-  } else {
-    rows = db
-      .prepare('SELECT id, username, email, role, is_banned, created_at FROM users ORDER BY created_at DESC')
-      .all();
+  try {
+    let query = {};
+    if (q) {
+      const regex = new RegExp(q, 'i');
+      query = { $or: [{ username: regex }, { email: regex }] };
+    }
+    
+    const users = await User.find(query)
+      .select('id username email role is_banned created_at')
+      .sort({ created_at: -1 });
+      
+    res.json({ users });
+  } catch (err) {
+    res.status(500).json({ error: 'Kullanıcılar alınamadı.' });
   }
-  res.json({ users: rows });
 });
 
 // PUT /api/admin/users/:id  { role?, is_banned? }
-router.put('/users/:id', (req, res) => {
-  const target = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
-  if (!target) return res.status(404).json({ error: 'Kullanıcı bulunamadı.' });
-  if (target.id === req.user.id) {
-    return res.status(400).json({ error: 'Kendi hesabınızı buradan değiştiremezsiniz.' });
+router.put('/users/:id', async (req, res) => {
+  try {
+    const target = await User.findById(req.params.id);
+    if (!target) return res.status(404).json({ error: 'Kullanıcı bulunamadı.' });
+    if (target._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({ error: 'Kendi hesabınızı buradan değiştiremezsiniz.' });
+    }
+
+    const role = req.body?.role ?? target.role;
+    const is_banned = req.body?.is_banned ?? target.is_banned;
+    if (!['user', 'admin'].includes(role)) return res.status(400).json({ error: 'Geçersiz rol.' });
+
+    target.role = role;
+    target.is_banned = !!is_banned;
+    await target.save();
+
+    const updated = await User.findById(req.params.id).select('id username email role is_banned created_at');
+    res.json({ user: updated });
+  } catch (err) {
+    res.status(500).json({ error: 'Kullanıcı güncellenemedi.' });
   }
-
-  const role = req.body?.role ?? target.role;
-  const is_banned = req.body?.is_banned ?? target.is_banned;
-  if (!['user', 'admin'].includes(role)) return res.status(400).json({ error: 'Geçersiz rol.' });
-
-  db.prepare('UPDATE users SET role = ?, is_banned = ? WHERE id = ?').run(
-    role,
-    is_banned ? 1 : 0,
-    req.params.id
-  );
-  const updated = db
-    .prepare('SELECT id, username, email, role, is_banned, created_at FROM users WHERE id = ?')
-    .get(req.params.id);
-  res.json({ user: updated });
 });
 
 // DELETE /api/admin/users/:id
-router.delete('/users/:id', (req, res) => {
-  if (Number(req.params.id) === req.user.id) {
+router.delete('/users/:id', async (req, res) => {
+  if (req.params.id === req.user._id.toString()) {
     return res.status(400).json({ error: 'Kendi hesabınızı silemezsiniz.' });
   }
-  db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
-  res.json({ ok: true });
+  try {
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Kullanıcı silinemedi.' });
+  }
 });
 
 // GET /api/admin/comments?q=
-router.get('/comments', (req, res) => {
-  const rows = db
-    .prepare(
-      `SELECT c.*, u.username FROM comments c JOIN users u ON u.id = c.user_id
-       ORDER BY c.created_at DESC LIMIT 200`
-    )
-    .all();
-  res.json({ comments: rows });
+router.get('/comments', async (req, res) => {
+  try {
+    const comments = await Comment.find()
+      .populate('user_id', 'username')
+      .sort({ created_at: -1 })
+      .limit(200);
+
+    const formatted = comments.map(c => ({
+      ...c.toObject(),
+      username: c.user_id ? c.user_id.username : 'Bilinmiyor'
+    }));
+
+    res.json({ comments: formatted });
+  } catch (err) {
+    res.status(500).json({ error: 'Yorumlar alınamadı.' });
+  }
 });
 
 // DELETE /api/admin/comments/:id
-router.delete('/comments/:id', (req, res) => {
-  db.prepare('UPDATE comments SET is_removed = 1 WHERE id = ?').run(req.params.id);
-  res.json({ ok: true });
+router.delete('/comments/:id', async (req, res) => {
+  try {
+    await Comment.findByIdAndUpdate(req.params.id, { is_removed: true });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Yorum silinemedi.' });
+  }
 });
 
 // GET /api/admin/rooms
-router.get('/rooms', (req, res) => {
-  const rows = db.prepare('SELECT * FROM chat_rooms ORDER BY id ASC').all();
-  res.json({ rooms: rows });
+router.get('/rooms', async (req, res) => {
+  try {
+    const rooms = await ChatRoom.find().sort({ _id: 1 });
+    res.json({ rooms });
+  } catch (err) {
+    res.status(500).json({ error: 'Odalar alınamadı.' });
+  }
 });
 
 module.exports = router;

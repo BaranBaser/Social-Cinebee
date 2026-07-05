@@ -1,70 +1,50 @@
 const express = require('express');
-const db = require('../db');
+const { Post, PostLike, User } = require('../db');
 const { requireAuth, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS posts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  content_key TEXT,
-  content_type TEXT,
-  content_title TEXT,
-  content_poster TEXT,
-  body TEXT NOT NULL DEFAULT '',
-  score INTEGER,
-  status TEXT CHECK (status IN ('watched', 'watchlist')),
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS post_likes (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE(user_id, post_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_posts_user ON posts(user_id);
-CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_post_likes_post ON post_likes(post_id);
-`);
-
 // GET /api/social/feed — herkese açık, tüm gönderiler (tarihe göre)
-router.get('/feed', optionalAuth, (req, res) => {
+router.get('/feed', optionalAuth, async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
   const offset = parseInt(req.query.offset) || 0;
-  const userId = req.user ? req.user.id : null;
+  const userId = req.user ? req.user._id : null;
 
-  let posts;
-  if (userId) {
-    posts = db.prepare(`
-      SELECT p.*, u.username, u.avatar_url,
-        (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as like_count,
-        (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id AND user_id = ?) as user_liked
-      FROM posts p
-      JOIN users u ON p.user_id = u.id
-      ORDER BY p.created_at DESC
-      LIMIT ? OFFSET ?
-    `).all(userId, limit, offset);
-  } else {
-    posts = db.prepare(`
-      SELECT p.*, u.username, u.avatar_url,
-        (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as like_count,
-        0 as user_liked
-      FROM posts p
-      JOIN users u ON p.user_id = u.id
-      ORDER BY p.created_at DESC
-      LIMIT ? OFFSET ?
-    `).all(limit, offset);
+  try {
+    const posts = await Post.find()
+      .populate('user_id', 'username avatar_url')
+      .sort({ created_at: -1 })
+      .skip(offset)
+      .limit(limit);
+
+    const formattedPosts = [];
+    for (const p of posts) {
+      const like_count = await PostLike.countDocuments({ post_id: p._id });
+      let user_liked = 0;
+      if (userId) {
+        const liked = await PostLike.findOne({ post_id: p._id, user_id: userId });
+        if (liked) user_liked = 1;
+      }
+
+      formattedPosts.push({
+        ...p.toObject(),
+        id: p._id,
+        username: p.user_id ? p.user_id.username : 'Bilinmiyor',
+        avatar_url: p.user_id ? p.user_id.avatar_url : null,
+        like_count,
+        user_liked
+      });
+    }
+
+    res.json({ posts: formattedPosts });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Akış alınamadı.' });
   }
-
-  res.json({ posts });
 });
 
 // POST /api/social/posts — yeni gönderi oluştur
-router.post('/posts', requireAuth, (req, res) => {
+router.post('/posts', requireAuth, async (req, res) => {
   const { content_key, content_type, content_title, content_poster, body, score, status } = req.body || {};
 
   if (!body && !content_key) {
@@ -77,101 +57,153 @@ router.post('/posts', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Durum watched veya watchlist olmalı.' });
   }
 
-  const info = db.prepare(`
-    INSERT INTO posts (user_id, content_key, content_type, content_title, content_poster, body, score, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    req.user.id,
-    content_key || null,
-    content_type || null,
-    content_title || null,
-    content_poster || null,
-    body || '',
-    score || null,
-    status || null
-  );
+  try {
+    const newPost = await Post.create({
+      user_id: req.user._id,
+      content_key: content_key || null,
+      content_type: content_type || null,
+      content_title: content_title || null,
+      content_poster: content_poster || null,
+      body: body || '',
+      score: score || null,
+      status: status || null
+    });
 
-  const post = db.prepare(`
-    SELECT p.*, u.username, u.avatar_url, 0 as like_count, 1 as user_liked
-    FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = ?
-  `).get(info.lastInsertRowid);
+    const populated = await Post.findById(newPost._id).populate('user_id', 'username avatar_url');
 
-  res.json({ ok: true, post });
+    res.json({ 
+      ok: true, 
+      post: {
+        ...populated.toObject(),
+        id: populated._id,
+        username: populated.user_id.username,
+        avatar_url: populated.user_id.avatar_url,
+        like_count: 0,
+        user_liked: 1
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Gönderi paylaşılamadı.' });
+  }
 });
 
 // DELETE /api/social/posts/:id — kendi gönderisini sil
-router.delete('/posts/:id', requireAuth, (req, res) => {
-  const postId = parseInt(req.params.id);
-  const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(postId);
-  if (!post) return res.status(404).json({ error: 'Gönderi bulunamadı.' });
-  if (post.user_id !== req.user.id) return res.status(403).json({ error: 'Bu gönderiyi silemezsiniz.' });
+router.delete('/posts/:id', requireAuth, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: 'Gönderi bulunamadı.' });
+    if (post.user_id.toString() !== req.user._id.toString()) return res.status(403).json({ error: 'Bu gönderiyi silemezsiniz.' });
 
-  db.prepare('DELETE FROM post_likes WHERE post_id = ?').run(postId);
-  db.prepare('DELETE FROM posts WHERE id = ?').run(postId);
-  res.json({ ok: true });
+    await PostLike.deleteMany({ post_id: post._id });
+    await Post.findByIdAndDelete(post._id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Gönderi silinemedi.' });
+  }
 });
 
 // POST /api/social/posts/:id/like — beğeni toggle
-router.post('/posts/:id/like', requireAuth, (req, res) => {
-  const postId = parseInt(req.params.id);
-  const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(postId);
-  if (!post) return res.status(404).json({ error: 'Gönderi bulunamadı.' });
+router.post('/posts/:id/like', requireAuth, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: 'Gönderi bulunamadı.' });
 
-  const existing = db.prepare('SELECT * FROM post_likes WHERE user_id = ? AND post_id = ?').get(req.user.id, postId);
+    const existing = await PostLike.findOne({ user_id: req.user._id, post_id: post._id });
 
-  if (existing) {
-    db.prepare('DELETE FROM post_likes WHERE user_id = ? AND post_id = ?').run(req.user.id, postId);
-  } else {
-    db.prepare('INSERT INTO post_likes (user_id, post_id) VALUES (?, ?)').run(req.user.id, postId);
+    if (existing) {
+      await PostLike.findByIdAndDelete(existing._id);
+    } else {
+      await PostLike.create({ user_id: req.user._id, post_id: post._id });
+    }
+
+    const likeCount = await PostLike.countDocuments({ post_id: post._id });
+    res.json({ ok: true, liked: !existing, like_count: likeCount });
+  } catch (err) {
+    res.status(500).json({ error: 'Beğenme işlemi başarısız.' });
   }
-
-  const likeCount = db.prepare('SELECT COUNT(*) as c FROM post_likes WHERE post_id = ?').get(postId).c;
-  res.json({ ok: true, liked: !existing, like_count: likeCount });
 });
 
 // GET /api/social/posts/:id/likes — beğenileri listele
-router.get('/posts/:id/likes', optionalAuth, (req, res) => {
-  const postId = parseInt(req.params.id);
-  const likes = db.prepare(`
-    SELECT u.id, u.username, u.avatar_url, pl.created_at
-    FROM post_likes pl JOIN users u ON pl.user_id = u.id
-    WHERE pl.post_id = ?
-    ORDER BY pl.created_at DESC
-  `).all(postId);
+router.get('/posts/:id/likes', optionalAuth, async (req, res) => {
+  try {
+    const likes = await PostLike.find({ post_id: req.params.id })
+      .populate('user_id', 'username avatar_url')
+      .sort({ created_at: -1 });
 
-  res.json({ likes, count: likes.length });
+    const formattedLikes = likes.map(l => ({
+      id: l.user_id ? l.user_id._id : null,
+      username: l.user_id ? l.user_id.username : 'Bilinmiyor',
+      avatar_url: l.user_id ? l.user_id.avatar_url : null,
+      created_at: l.created_at
+    })).filter(l => l.id);
+
+    res.json({ likes: formattedLikes, count: formattedLikes.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Beğeniler alınamadı.' });
+  }
 });
 
 // GET /api/social/trending — en çok paylaşılan içerikler
-router.get('/trending', optionalAuth, (req, res) => {
+router.get('/trending', optionalAuth, async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
-  const trending = db.prepare(`
-    SELECT content_key, content_type, content_title, content_poster, COUNT(*) as post_count
-    FROM posts
-    WHERE content_key IS NOT NULL
-    GROUP BY content_key
-    ORDER BY post_count DESC
-    LIMIT ?
-  `).all(limit);
+  try {
+    const trending = await Post.aggregate([
+      { $match: { content_key: { $ne: null } } },
+      { $group: {
+          _id: '$content_key',
+          content_type: { $first: '$content_type' },
+          content_title: { $first: '$content_title' },
+          content_poster: { $first: '$content_poster' },
+          post_count: { $sum: 1 }
+      }},
+      { $sort: { post_count: -1 } },
+      { $limit: limit },
+      { $project: {
+          _id: 0,
+          content_key: '$_id',
+          content_type: 1,
+          content_title: 1,
+          content_poster: 1,
+          post_count: 1
+      }}
+    ]);
 
-  res.json({ trending });
+    res.json({ trending });
+  } catch (err) {
+    res.status(500).json({ error: 'Trendler alınamadı.' });
+  }
 });
 
 // GET /api/social/active-users — son zamanlarda aktif kullanıcılar
-router.get('/active-users', optionalAuth, (req, res) => {
+router.get('/active-users', optionalAuth, async (req, res) => {
   const limit = parseInt(req.query.limit) || 20;
-  const users = db.prepare(`
-    SELECT DISTINCT u.id, u.username, u.avatar_url,
-      MAX(p.created_at) as last_active
-    FROM users u
-    LEFT JOIN posts p ON u.id = p.user_id
-    WHERE p.created_at IS NOT NULL
-    GROUP BY u.id
-    ORDER BY last_active DESC
-    LIMIT ?
-  `).all(limit);
+  try {
+    const activeUsersAgg = await Post.aggregate([
+      { $group: {
+          _id: '$user_id',
+          last_active: { $max: '$created_at' }
+      }},
+      { $sort: { last_active: -1 } },
+      { $limit: limit }
+    ]);
 
-  res.json({ users });
+    const users = [];
+    for (const u of activeUsersAgg) {
+      const userDoc = await User.findById(u._id).select('username avatar_url');
+      if (userDoc) {
+        users.push({
+          id: userDoc._id,
+          username: userDoc.username,
+          avatar_url: userDoc.avatar_url,
+          last_active: u.last_active
+        });
+      }
+    }
+
+    res.json({ users });
+  } catch (err) {
+    res.status(500).json({ error: 'Aktif kullanıcılar alınamadı.' });
+  }
 });
 
 module.exports = router;

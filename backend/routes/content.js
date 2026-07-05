@@ -1,6 +1,6 @@
 const express = require('express');
 const fetch = require('node-fetch');
-const db = require('../db');
+const { ContentCache } = require('../db');
 
 const router = express.Router();
 
@@ -92,17 +92,12 @@ router.get('/trending', async (req, res) => {
   const offset = (page - 1) * limit;
 
   try {
-    // Her filtre tek bir category'ye karşılık gelir
-    // rowid = insertion order (preserves TMDB/Jikan API order per category)
-    const rows = db.prepare(
-      'SELECT * FROM content_cache WHERE type = ? AND category = ? LIMIT ? OFFSET ?'
-    ).all(type, filter, limit, offset);
-
-    const countRow = db.prepare(
-      'SELECT COUNT(*) as c FROM content_cache WHERE type = ? AND category = ?'
-    ).get(type, filter);
-
-    const total = countRow?.c || 0;
+    const total = await ContentCache.countDocuments({ type, category: filter });
+    const rows = await ContentCache.find({ type, category: filter })
+      .skip(offset)
+      .limit(limit)
+      // Mongoose'da siralama yapilmadiginda ekleme sirasina gore donecektir, ama emin olmak icin _id'ye gore siralayabiliriz.
+      .sort({ _id: 1 });
 
     if (total > 0) {
       return res.json({
@@ -113,7 +108,6 @@ router.get('/trending', async (req, res) => {
       });
     }
 
-    // Kategori boşsa boş dön (fallback tüm içeriği göstermesin)
     return res.json({
       results: [],
       hasMore: false,
@@ -134,12 +128,26 @@ router.get('/search', async (req, res) => {
 
   try {
     const typeFilter = type === 'anime' ? 'anime' : type;
-    // Deduplicate by tmdb_id/mal_id — same movie can exist in multiple categories
-    const rows = db.prepare(
-      `SELECT * FROM content_cache WHERE (title LIKE ? OR original_title LIKE ?) AND type = ?
-       GROUP BY COALESCE(tmdb_id, mal_id)
-       ORDER BY rating DESC LIMIT 40`
-    ).all(`%${q}%`, `%${q}%`, typeFilter);
+    const regex = new RegExp(q, 'i');
+    
+    // Aggregate to group by tmdb_id/mal_id
+    const rows = await ContentCache.aggregate([
+      { 
+        $match: { 
+          $or: [{ title: regex }, { original_title: regex }], 
+          type: typeFilter 
+        } 
+      },
+      {
+        $group: {
+          _id: { $cond: [{ $ifNull: ["$tmdb_id", false] }, "$tmdb_id", "$mal_id"] },
+          doc: { $first: "$$ROOT" }
+        }
+      },
+      { $replaceRoot: { newRoot: "$doc" } },
+      { $sort: { rating: -1 } },
+      { $limit: 40 }
+    ]);
 
     if (rows.length > 0) {
       return res.json({ results: rows.map(normalizeCache), source: 'cache' });
@@ -158,19 +166,17 @@ router.get('/detail', async (req, res) => {
   if (!key) return res.status(400).json({ error: 'Gecersiz icerik anahtari.' });
 
   try {
-    // 1. Try exact content_key match (handles both old "movie-550" and new "movie-550-popular")
-    let cached = db.prepare('SELECT * FROM content_cache WHERE content_key = ?').get(key);
+    let cached = await ContentCache.findOne({ content_key: key });
 
-    // 2. If no exact match, parse key and look up by type+tmdb_id or type+mal_id
     if (!cached) {
       const parts = key.split('-');
-      const type = parts[0]; // movie, tv, anime
+      const type = parts[0];
       const id = parseInt(parts[1], 10);
 
       if (type === 'anime') {
-        cached = db.prepare('SELECT * FROM content_cache WHERE type = ? AND mal_id = ? LIMIT 1').get(type, id);
+        cached = await ContentCache.findOne({ type, mal_id: id });
       } else if (type === 'movie' || type === 'tv') {
-        cached = db.prepare('SELECT * FROM content_cache WHERE type = ? AND tmdb_id = ? LIMIT 1').get(type, id);
+        cached = await ContentCache.findOne({ type, tmdb_id: id });
       }
     }
 
@@ -209,7 +215,6 @@ router.get('/detail', async (req, res) => {
       return res.json({ content });
     }
 
-    // 3. Not in cache — fetch live
     const parts = key.split('-');
     const type = parts[0];
     const id = parseInt(parts[1], 10);
@@ -251,12 +256,17 @@ router.get('/detail', async (req, res) => {
 });
 
 // GET /api/content/stats
-router.get('/stats', (req, res) => {
-  const movies = db.prepare("SELECT COUNT(*) as c FROM content_cache WHERE type='movie'").get().c;
-  const tv = db.prepare("SELECT COUNT(*) as c FROM content_cache WHERE type='tv'").get().c;
-  const anime = db.prepare("SELECT COUNT(*) as c FROM content_cache WHERE type='anime'").get().c;
-  const lastSync = db.prepare("SELECT MAX(synced_at) as t FROM content_cache").get().t;
-  res.json({ movies, tv, anime, total: movies + tv + anime, lastSync });
+router.get('/stats', async (req, res) => {
+  try {
+    const movies = await ContentCache.countDocuments({ type: 'movie' });
+    const tv = await ContentCache.countDocuments({ type: 'tv' });
+    const anime = await ContentCache.countDocuments({ type: 'anime' });
+    const lastSyncDoc = await ContentCache.findOne().sort({ synced_at: -1 });
+    const lastSync = lastSyncDoc ? lastSyncDoc.synced_at : null;
+    res.json({ movies, tv, anime, total: movies + tv + anime, lastSync });
+  } catch (err) {
+    res.status(500).json({ error: 'Stats failed' });
+  }
 });
 
 module.exports = router;

@@ -1,5 +1,5 @@
 const fetch = require('node-fetch');
-const db = require('./db');
+const { ContentCache } = require('./db');
 
 const TMDB = 'https://api.themoviedb.org/3';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
@@ -17,20 +17,37 @@ function tmQ() {
   return `api_key=${k}&`;
 }
 
-const stmt = db.prepare(`INSERT OR IGNORE INTO content_cache (content_key,type,title,original_title,overview,poster,backdrop,rating,year,duration,genres,status,number_of_seasons,number_of_episodes,mal_id,tmdb_id,source,category,synced_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`);
-
-// Update stmt for category-specific upserts (same movie can be in multiple categories)
-const upsertStmt = db.prepare(`INSERT OR REPLACE INTO content_cache (content_key,type,title,original_title,overview,poster,backdrop,rating,year,duration,genres,status,number_of_seasons,number_of_episodes,mal_id,tmdb_id,source,category,synced_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`);
-
 let synced = 0;
-function save(k,t,ti,ot,ov,po,ba,ra,ye,du,ge,st,sn,ep,mi,tm,so,ca) {
+async function save(k,t,ti,ot,ov,po,ba,ra,ye,du,ge,st,sn,ep,mi,tm,so,ca) {
   try {
-    // k is already category-specific (e.g. "movie-550-popular")
-    const existing = db.prepare('SELECT content_key FROM content_cache WHERE content_key = ?').get(k);
+    const existing = await ContentCache.findOne({ content_key: k });
     if (existing) return; // already in DB for this category
-    const info = stmt.run(k,t,ti,ot||ti,ov||'',po||null,ba||null,ra||0,ye||'',du||null,ge||'',st||'',sn||null,ep||null,mi||null,tm||null,so,ca);
-    if (info.changes > 0) synced++;
-  } catch {}
+    
+    await ContentCache.create({
+      content_key: k,
+      type: t,
+      title: ti,
+      original_title: ot || ti,
+      overview: ov || '',
+      poster: po || null,
+      backdrop: ba || null,
+      rating: ra || 0,
+      year: ye || '',
+      duration: du || null,
+      genres: ge || '',
+      status: st || '',
+      number_of_seasons: sn || null,
+      number_of_episodes: ep || null,
+      mal_id: mi || null,
+      tmdb_id: tm || null,
+      source: so,
+      category: ca,
+      synced_at: new Date()
+    });
+    synced++;
+  } catch (err) {
+    // ignore dup keys or errors
+  }
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -54,7 +71,7 @@ async function tmdbList(path, type, cat, maxPages) {
         const title = i.title || i.name || '';
         const orig = i.original_title || i.original_name || title;
         const year = (i.release_date || i.first_air_date || '').slice(0, 4);
-        save(key, type, title, orig, i.overview || '',
+        await save(key, type, title, orig, i.overview || '',
           i.poster_path ? TMDB_IMG + i.poster_path : null,
           i.backdrop_path ? TMDB_BG + i.backdrop_path : null,
           i.vote_average || 0, year, i.runtime || null,
@@ -85,7 +102,7 @@ async function tmdbDiscover(params, type, cat, maxPages) {
         const title = i.title || i.name || '';
         const orig = i.original_title || i.original_name || title;
         const year = (i.release_date || i.first_air_date || '').slice(0, 4);
-        save(key, type, title, orig, i.overview || '',
+        await save(key, type, title, orig, i.overview || '',
           i.poster_path ? TMDB_IMG + i.poster_path : null,
           i.backdrop_path ? TMDB_BG + i.backdrop_path : null,
           i.vote_average || 0, year, i.runtime || null,
@@ -107,10 +124,10 @@ async function syncAll() {
 
   // Drop old cache and recreate with new category-specific keys
   try {
-    const count = db.prepare('SELECT COUNT(*) as c FROM content_cache').get().c;
+    const count = await ContentCache.countDocuments();
     if (count > 0) {
       console.log(`  🗑️  Eski cache temizleniyor (${count} kayıt)...`);
-      db.prepare('DELETE FROM content_cache').run();
+      await ContentCache.deleteMany({});
     }
   } catch {}
 
@@ -184,7 +201,7 @@ async function syncAll() {
           const key = `anime-${a.mal_id}-${cat}`;
           const title = a.title_english || a.title || '';
           const year = a.year ? String(a.year) : (a.aired?.from ? a.aired.from.slice(0,4) : '');
-          save(key, 'anime', title, a.title||title, a.synopsis||'',
+          await save(key, 'anime', title, a.title||title, a.synopsis||'',
             a.images?.jpg?.large_image_url || a.images?.jpg?.image_url || null, null,
             a.score||0, year, a.episodes||null,
             (a.genres||[]).map(g=>g.name).join(', '), a.status||'',
@@ -217,10 +234,10 @@ async function syncAll() {
   // ═══════════════════════════════════
   // SONUÇ
   // ═══════════════════════════════════
-  const c = db.prepare('SELECT COUNT(*) as c FROM content_cache').get().c;
-  const m = db.prepare("SELECT COUNT(*) as c FROM content_cache WHERE type='movie'").get().c;
-  const tv = db.prepare("SELECT COUNT(*) as c FROM content_cache WHERE type='tv'").get().c;
-  const an = db.prepare("SELECT COUNT(*) as c FROM content_cache WHERE type='anime'").get().c;
+  const c = await ContentCache.countDocuments();
+  const m = await ContentCache.countDocuments({ type: 'movie' });
+  const tv = await ContentCache.countDocuments({ type: 'tv' });
+  const an = await ContentCache.countDocuments({ type: 'anime' });
   const el = ((Date.now()-t0)/1000).toFixed(0);
 
   console.log(`\n╔════════════════════════════════════════════╗`);
