@@ -109,14 +109,7 @@ async function syncAll() {
   synced = 0;
   console.log('\n🚀 CINEMA-AI SENKRONİZASYON BAŞLADI\n');
 
-  // Drop old cache and recreate with new category-specific keys
-  try {
-    const count = await ContentCache.countDocuments();
-    if (count > 0) {
-      console.log(`  🗑️  Eski cache temizleniyor (${count} kayıt)...`);
-      await ContentCache.deleteMany({});
-    }
-  } catch {}
+  // Eski cache'i temizlemiyoruz, çünkü upsert kullanıyoruz.
 
   // ═══════════════════════════════════
   // FİLMLER
