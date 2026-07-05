@@ -68,16 +68,17 @@ function normalizeJikan(item) {
   };
 }
 
-// GET /api/content/trending?type=movie|tv|anime&filter=popular|trending|new|most_watched|top_rated
+// GET /api/content/trending?type=movie|tv|anime&filter=popular|trending|new|most_watched|top_rated&page=1
 router.get('/trending', async (req, res) => {
   const type = req.query.type || 'movie';
   const filter = req.query.filter || 'popular';
+  const page = req.query.page || '1';
   try {
     if (type === 'anime') {
       let endpoint = 'top/anime';
-      let params = 'limit=20';
+      let params = `limit=20&page=${page}`;
       if (filter === 'new') endpoint = 'seasons/now';
-      else if (filter === 'trending') params = 'limit=20&filter=bypopularity';
+      else if (filter === 'trending') params = `limit=20&filter=bypopularity&page=${page}`;
       const r = await fetch(`${JIKAN_BASE}/${endpoint}?${params}`);
       const data = await r.json();
       return res.json({ results: (data.data || []).map(normalizeJikan) });
@@ -104,7 +105,7 @@ router.get('/trending', async (req, res) => {
         path = type === 'tv' ? 'tv/popular' : 'movie/popular';
     }
 
-    const r = await fetch(`${TMDB_BASE}/${path}?${tmdbParams(key)}page=1`, {
+    const r = await fetch(`${TMDB_BASE}/${path}?${tmdbParams(key)}page=${page}`, {
       headers: tmdbHeaders(),
     });
     const data = await r.json();
@@ -115,15 +116,16 @@ router.get('/trending', async (req, res) => {
   }
 });
 
-// GET /api/content/search?q=...&type=movie|tv|anime
+// GET /api/content/search?q=...&type=movie|tv|anime&page=1
 router.get('/search', async (req, res) => {
   const q = (req.query.q || '').toString();
   const type = req.query.type || 'movie';
+  const page = req.query.page || '1';
   if (!q.trim()) return res.json({ results: [] });
 
   try {
     if (type === 'anime') {
-      const r = await fetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(q)}&limit=20`);
+      const r = await fetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(q)}&limit=20&page=${page}`);
       const data = await r.json();
       return res.json({ results: (data.data || []).map(normalizeJikan) });
     }
@@ -133,7 +135,7 @@ router.get('/search', async (req, res) => {
 
     const path = type === 'tv' ? 'search/tv' : 'search/movie';
     const r = await fetch(
-      `${TMDB_BASE}/${path}?${tmdbParams(key)}query=${encodeURIComponent(q)}`,
+      `${TMDB_BASE}/${path}?${tmdbParams(key)}query=${encodeURIComponent(q)}&page=${page}`,
       { headers: tmdbHeaders() }
     );
     const data = await r.json();

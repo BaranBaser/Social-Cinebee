@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
@@ -50,44 +50,82 @@ export default function Home() {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [query, setQuery] = useState(queryParam);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [warning, setWarning] = useState('');
   const [lastUpdate, setLastUpdate] = useState('');
+  const observerTarget = useRef(null);
 
-  const loadContent = useCallback(async () => {
-    setLoading(true);
+  const loadContent = useCallback(async (pageNum = 1) => {
+    if (pageNum === 1) setLoading(true);
+    else setLoadingMore(true);
+
     try {
       const endpoint = query.trim() ? '/content/search' : '/content/trending';
       const params = query.trim()
-        ? { q: query, type }
-        : { type, filter };
+        ? { q: query, type, page: pageNum }
+        : { type, filter, page: pageNum };
       const { data } = await api.get(endpoint, { params });
-      setItems(data.results || []);
+      
+      const newItems = data.results || [];
+      if (newItems.length < 20) setHasMore(false);
+      else setHasMore(true);
+
+      if (pageNum === 1) setItems(newItems);
+      else setItems(prev => [...prev, ...newItems]);
+      
       setWarning(data.warning || '');
       setLastUpdate(new Date().toLocaleTimeString('tr-TR'));
     } catch {
-      setItems([]);
+      if (pageNum === 1) setItems([]);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [type, filter, query]);
 
   useEffect(() => {
-    loadContent();
+    setPage(1);
+    loadContent(1);
   }, [loadContent]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          loadContent(nextPage);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
+      }
+    };
+  }, [observerTarget, hasMore, loading, loadingMore, page, loadContent]);
 
   useEffect(() => {
     if (queryParam) setQuery(queryParam);
   }, [queryParam]);
 
   return (
-    <div className="max-w-[1400px] mx-auto px-6">
+    <div className="max-w-[1400px] mx-auto px-4 md:px-8 lg:px-16">
       {/* Hero Section */}
-      <div className="pt-12 pb-10">
-        <p className="text-[#c0392b] text-[11px] font-mono uppercase tracking-[0.2em] mb-3">CINEMA - AI - TRACKER</p>
+      <div className="pt-12 pb-20">
+        <p className="text-[#c0392b] text-[11px] font-mono uppercase tracking-[0.2em] mb-3">CINEBEE - SOCIAL - TRACKER</p>
         <h1 className="font-display text-6xl md:text-7xl lg:text-8xl tracking-wide text-white mb-3" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
           Sinematik Keşif
         </h1>
-        <p className="text-gray-400 text-sm md:text-base max-w-xl mb-6">
+        <p className="text-gray-300 text-base md:text-lg max-w-xl mb-10">
           Ruh halinize göre dizi, film ve anime önerileri. Tek bir çatı altında.
         </p>
         <div className="flex gap-3">
@@ -128,7 +166,7 @@ export default function Home() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-1.5 flex-wrap">
           {FILTERS.map((f) => (
             <button
@@ -137,7 +175,7 @@ export default function Home() {
               className={`px-3.5 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all ${
                 filter === f.key
                   ? 'bg-[#c0392b]/90 text-white'
-                  : 'text-gray-500 hover:text-gray-300'
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
               {f.label}
@@ -152,13 +190,11 @@ export default function Home() {
       </div>
 
       {/* Live Indicator */}
-      <div className="flex items-center gap-2 mb-6">
-        <span className="flex items-center gap-1.5 text-xs font-bold text-[#c0392b]">
-          <span className="w-2 h-2 rounded-full bg-[#c0392b] animate-pulse" />
-          CANLI
-        </span>
+      <div className="flex items-center gap-2 mb-6 text-gray-500 text-xs mt-10">
+        <span className="w-2 h-2 rounded-full bg-[#c0392b] animate-pulse-live" />
+        <span className="font-bold tracking-wider text-[#c0392b]">CANLI</span>
         {lastUpdate && (
-          <span className="text-[11px] text-gray-500">
+          <span className="text-xs text-gray-400">
             Son güncelleme {lastUpdate}
           </span>
         )}
@@ -175,10 +211,10 @@ export default function Home() {
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="animate-pulse">
-              <div className="aspect-[2/3] bg-white/[0.04] rounded-2xl" />
-              <div className="mt-2.5 h-3.5 bg-white/[0.04] rounded-md w-3/4" />
-              <div className="mt-1.5 h-2.5 bg-white/[0.04] rounded-md w-1/2" />
+            <div key={i} className="flex flex-col gap-2">
+              <div className="aspect-[2/3] rounded-2xl animate-shimmer bg-[#1a1a1a]" />
+              <div className="h-4 rounded-md animate-shimmer bg-[#1a1a1a] w-3/4 mt-1" />
+              <div className="h-3 rounded-md animate-shimmer bg-[#1a1a1a] w-1/2" />
             </div>
           ))}
         </div>
@@ -187,11 +223,27 @@ export default function Home() {
           {query ? `"${query}" için sonuç bulunamadı.` : 'İçerik bulunamadı.'}
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-10">
-          {items.map((item) => (
-            <ContentCard key={item.key} item={item} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-10">
+            {items.map((item, index) => (
+              <ContentCard key={`${item.key}-${index}`} item={item} />
+            ))}
+          </div>
+          
+          {/* Intersection Observer Target */}
+          <div ref={observerTarget} className="h-20 flex items-center justify-center pb-20">
+            {loadingMore && (
+              <div className="flex gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#c0392b] animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#c0392b] animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#c0392b] animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            )}
+            {!hasMore && items.length > 0 && !loadingMore && (
+              <span className="text-gray-500 text-sm">Daha fazla içerik bulunmuyor.</span>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

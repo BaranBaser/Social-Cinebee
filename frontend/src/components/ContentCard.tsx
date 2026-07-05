@@ -17,7 +17,7 @@ export default function ContentCard({ item, badge }: { item: ContentItem; badge?
   return (
     <Link
       href={`/title/${item.key}`}
-      className="group relative flex flex-col rounded-2xl overflow-hidden bg-[#141210] border border-white/[0.06] hover:border-white/15 transition-all duration-300 hover:shadow-2xl hover:shadow-black/40 hover:-translate-y-1"
+      className="group relative flex flex-col rounded-2xl overflow-hidden bg-[#141210] border border-white/[0.06] hover:border-[#c0392b]/50 transition-all duration-300 ease-out hover:shadow-[0_0_30px_rgba(192,57,43,0.25)] hover:-translate-y-2"
     >
       <div className="aspect-[2/3] bg-[#111] overflow-hidden relative rounded-t-2xl">
         {item.poster ? (
@@ -25,7 +25,7 @@ export default function ContentCard({ item, badge }: { item: ContentItem; badge?
             src={item.poster}
             alt={item.title}
             loading="lazy"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-600 text-xs px-2 text-center">
@@ -57,8 +57,8 @@ export default function ContentCard({ item, badge }: { item: ContentItem; badge?
       </div>
 
       <div className="p-3">
-        <p className="text-sm font-medium text-white line-clamp-2 leading-snug">{item.title}</p>
-        {item.year && <p className="text-xs text-gray-500 mt-1">{item.year}</p>}
+        <p className="text-sm font-semibold text-white line-clamp-2 leading-snug">{item.title}</p>
+        {item.year && <p className="text-sm text-gray-400 mt-1">{item.year}</p>}
       </div>
     </Link>
   );

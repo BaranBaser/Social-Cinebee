@@ -153,9 +153,9 @@ export default function ContentDetail() {
         {content.backdrop ? (
           <img src={content.backdrop} alt="" className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full bg-gradient-to-b from-[#1a1a1a] to-[#0a0908]" />
+          <div className="w-full h-full bg-gradient-to-b from-[#1a1a1a] to-[#000000]" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0908] via-[#0a0908]/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#000000] via-[#000000]/50 to-transparent" />
       </div>
 
       <div className="max-w-[1400px] mx-auto px-6 relative -mt-48 z-10 pb-12">
