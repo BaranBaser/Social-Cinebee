@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Film } from 'lucide-react';
+import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
@@ -32,12 +32,9 @@ export default function LoginPage() {
     <div className="min-h-[80vh] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 rounded-md bg-velvet flex items-center justify-center mb-3">
-            <Film size={24} className="text-cream" />
+          <div className="w-32 h-16 relative mb-2">
+            <Image src="/full_logo.png" alt="Cinebee" fill className="object-contain" />
           </div>
-          <h1 className="font-display text-4xl tracking-wide text-cream">
-            CINEMA<span className="text-marquee">AI</span>
-          </h1>
           <p className="text-muted text-sm mt-1">Topluluğuna tekrar hoş geldin</p>
         </div>
 

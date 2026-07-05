@@ -1,18 +1,17 @@
 'use client';
 
-import { Film } from 'lucide-react';
-
 export default function Loading() {
   return (
-    <div className="min-h-[80vh] flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 rounded-md bg-velvet flex items-center justify-center animate-pulse">
-          <Film size={24} className="text-cream" />
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 border-2 border-marquee border-t-transparent rounded-full animate-spin" />
-          <span className="text-muted text-sm">Yukleniyor...</span>
-        </div>
+    <div className="max-w-[1400px] mx-auto px-4 md:px-8 lg:px-16 py-8">
+      <div className="h-10 w-48 bg-[#1a1a1a] rounded-xl animate-shimmer mb-8" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <div key={i} className="flex flex-col gap-2">
+            <div className="aspect-[2/3] rounded-2xl animate-shimmer bg-[#1a1a1a]" />
+            <div className="h-4 rounded-md animate-shimmer bg-[#1a1a1a] w-3/4 mt-1" />
+            <div className="h-3 rounded-md animate-shimmer bg-[#1a1a1a] w-1/2" />
+          </div>
+        ))}
       </div>
     </div>
   );

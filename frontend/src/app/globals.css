@@ -12,27 +12,17 @@ html {
 
 body {
   margin: 0;
-  background-color: #0a0908;
+  background-color: #000000;
   color: #ffffff;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 600px;
-  background: radial-gradient(ellipse at 50% 0%, rgba(192,57,43,0.08) 0%, rgba(192,57,43,0.03) 40%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-}
+
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0a0908; }
+::-webkit-scrollbar-track { background: #000000; }
 ::-webkit-scrollbar-thumb { background: #222; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #444; }
 
@@ -40,7 +30,17 @@ body::before {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
-.animate-pulse { animation: pulse-live 1.5s ease-in-out infinite; }
+.animate-pulse-live { animation: pulse-live 1.5s ease-in-out infinite; }
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.02) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.02) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite linear;
+}
 
 .line-clamp-2 {
   display: -webkit-box;

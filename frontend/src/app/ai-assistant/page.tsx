@@ -78,7 +78,7 @@ export default function AIAssistant() {
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Yalnızlık temalı, karanlık ve atmosferik bir bilim kurgu"
             rows={3}
-            className="flex-1 bg-[#0a0908] rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-[#c0392b]/50 resize-none placeholder:text-gray-600 border border-white/[0.04]"
+            className="flex-1 bg-[#000000] rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-[#c0392b]/50 resize-none placeholder:text-gray-600 border border-white/[0.04]"
           />
           <button
             onClick={() => handleSubmit()}

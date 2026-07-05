@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -101,14 +102,23 @@ export default function Navbar({ onOpenChat }: { onOpenChat: () => void }) {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-[#0a0908]/90 backdrop-blur-xl border-b border-white/[0.06]">
-      <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between gap-6">
-        <Link href="/" className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 rounded-md bg-[#c0392b] flex items-center justify-center">
-            <span className="text-white font-bold text-sm">C</span>
+    <header className="sticky top-0 z-40 bg-[#161616]/90 backdrop-blur-xl border-b border-white/10 shadow-lg relative overflow-hidden">
+      <div 
+        className="absolute inset-0 z-0 opacity-20 pointer-events-none mix-blend-screen"
+        style={{
+          backgroundImage: 'url(/navbar_bg.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      />
+      <div className="relative z-10 max-w-[1400px] mx-auto px-4 md:px-8 lg:px-16 h-28 flex items-center justify-between gap-6">
+        <Link href="/" className="flex items-center gap-4 shrink-0">
+          <div className="w-24 h-24 relative">
+            <Image src="/emblem.png" alt="Cinebee" fill className="object-contain" />
           </div>
-          <span className="text-xl tracking-wide text-white font-semibold">
-            CINEMA<span className="text-[#c0392b]">AI</span>
+          <span className="text-4xl tracking-wide text-white font-bold">
+            cinebee
           </span>
         </Link>
 
