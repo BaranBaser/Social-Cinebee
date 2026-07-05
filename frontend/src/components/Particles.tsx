@@ -18,16 +18,15 @@ export default function Particles() {
 
     const particles: { x: number; y: number; size: number; speedX: number; speedY: number; opacity: number; opacitySpeed: number }[] = [];
 
-    // Create 50 particles
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 40; i++) {
       particles.push({
         x: Math.random() * width,
         y: Math.random() * height,
         size: Math.random() * 2 + 0.5,
-        speedX: (Math.random() - 0.5) * 0.5,
-        speedY: (Math.random() - 0.5) * 0.5 - 0.2, // slightly floating up
-        opacity: Math.random(),
-        opacitySpeed: (Math.random() * 0.02) - 0.01,
+        speedX: (Math.random() - 0.5) * 0.3,
+        speedY: (Math.random() - 0.5) * 0.3 - 0.15,
+        opacity: Math.random() * 0.5,
+        opacitySpeed: (Math.random() * 0.015) - 0.0075,
       });
     }
 
@@ -37,27 +36,24 @@ export default function Particles() {
       ctx.clearRect(0, 0, width, height);
 
       particles.forEach((p) => {
-        // Move
         p.x += p.speedX;
         p.y += p.speedY;
 
-        // Wrap around
         if (p.x < 0) p.x = width;
         if (p.x > width) p.x = 0;
         if (p.y < 0) p.y = height;
         if (p.y > height) p.y = 0;
 
-        // Pulse opacity
         p.opacity += p.opacitySpeed;
-        if (p.opacity >= 1 || p.opacity <= 0) {
+        if (p.opacity >= 0.5 || p.opacity <= 0) {
           p.opacitySpeed = -p.opacitySpeed;
         }
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(192, 57, 43, ${Math.max(0, p.opacity)})`; // #c0392b red
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = '#c0392b';
+        ctx.fillStyle = `rgba(245, 197, 24, ${Math.max(0, p.opacity * 0.4)})`;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = 'rgba(245, 197, 24, 0.3)';
         ctx.fill();
       });
 

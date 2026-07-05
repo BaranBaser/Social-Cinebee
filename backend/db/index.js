@@ -92,6 +92,33 @@ CREATE INDEX IF NOT EXISTS idx_room_messages_room ON room_messages(room_id);
 CREATE INDEX IF NOT EXISTS idx_dm_pair ON dm_messages(sender_id, receiver_id);
 CREATE INDEX IF NOT EXISTS idx_library_user ON library(user_id);
 CREATE INDEX IF NOT EXISTS idx_library_status ON library(user_id, status);
+
+CREATE TABLE IF NOT EXISTS content_cache (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  content_key TEXT UNIQUE NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  original_title TEXT,
+  overview TEXT,
+  poster TEXT,
+  backdrop TEXT,
+  rating REAL DEFAULT 0,
+  year TEXT,
+  duration INTEGER,
+  genres TEXT,
+  status TEXT,
+  number_of_seasons INTEGER,
+  number_of_episodes INTEGER,
+  mal_id INTEGER,
+  tmdb_id INTEGER,
+  source TEXT NOT NULL DEFAULT 'tmdb',
+  category TEXT NOT NULL DEFAULT 'popular',
+  synced_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_cache_type ON content_cache(type);
+CREATE INDEX IF NOT EXISTS idx_cache_category ON content_cache(type, category);
+CREATE INDEX IF NOT EXISTS idx_cache_source ON content_cache(source);
 `);
 
 const generalRoom = db.prepare(`SELECT * FROM chat_rooms WHERE name = 'Genel Sohbet'`).get();

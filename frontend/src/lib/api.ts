@@ -28,3 +28,14 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+// Strip category suffix from content_key to get base key
+// "movie-550-popular" → "movie-550", "anime-1234-trending" → "anime-1234"
+export function baseKey(key: string): string {
+  const categories = ['popular', 'trending', 'new', 'top_rated', 'most_watched'];
+  const parts = key.split('-');
+  if (parts.length >= 3 && categories.includes(parts[parts.length - 1])) {
+    return parts.slice(0, 2).join('-');
+  }
+  return key;
+}

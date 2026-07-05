@@ -13,6 +13,7 @@ const adminRoutes = require('./routes/admin');
 const aiRoutes = require('./routes/ai');
 const libraryRoutes = require('./routes/library');
 const { attachSocket } = require('./socket');
+const { startAutoSync } = require('./sync');
 
 if (!process.env.JWT_SECRET) {
   console.warn('JWT_SECRET tanimli degil. .env dosyanizi kontrol edin.');
@@ -29,6 +30,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/library', libraryRoutes);
+app.use('/api/social', require('./routes/social'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
@@ -48,4 +50,5 @@ attachSocket(io);
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`CinemaAI Social sunucusu http://localhost:${PORT} adresinde calisiyor`);
+  startAutoSync(6 * 60 * 60 * 1000);
 });

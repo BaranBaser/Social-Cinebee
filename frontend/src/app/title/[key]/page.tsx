@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Star } from 'lucide-react';
 import Link from 'next/link';
-import api from '@/lib/api';
+import api, { baseKey } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import FilmstripRating from '@/components/FilmstripRating';
 
@@ -49,6 +49,7 @@ export default function ContentDetail() {
   const router = useRouter();
   const { user } = useAuth();
   const key = params.key as string;
+  const bk = baseKey(key);
 
   const [content, setContent] = useState<ContentData | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -59,7 +60,7 @@ export default function ContentDetail() {
 
   const loadComments = async () => {
     try {
-      const { data } = await api.get('/comments', { params: { content_key: key } });
+      const { data } = await api.get('/comments', { params: { content_key: bk } });
       setComments(data.comments);
       setRating(data.rating);
     } catch {}
@@ -67,7 +68,7 @@ export default function ContentDetail() {
 
   const loadLibraryStatus = async () => {
     try {
-      const { data } = await api.get(`/library/check/${encodeURIComponent(key)}`);
+      const { data } = await api.get(`/library/check/${encodeURIComponent(bk)}`);
       setLibraryStatus(data.status);
     } catch {}
   };
@@ -85,7 +86,7 @@ export default function ContentDetail() {
     e.preventDefault();
     if (!draft.trim()) return;
     await api.post('/comments', {
-      content_key: key,
+      content_key: bk,
       content_title: content?.title,
       content_type: content?.type,
       body: draft,
@@ -101,7 +102,7 @@ export default function ContentDetail() {
 
   const rate = async (score: number) => {
     const { data } = await api.post('/comments/rate', {
-      content_key: key,
+      content_key: bk,
       content_title: content?.title,
       content_type: content?.type,
       score,
@@ -111,11 +112,11 @@ export default function ContentDetail() {
 
   const toggleLibrary = async (status: 'watched' | 'watchlist') => {
     if (libraryStatus === status) {
-      await api.delete(`/library/${encodeURIComponent(key)}`);
+      await api.delete(`/library/${encodeURIComponent(bk)}`);
       setLibraryStatus(null);
     } else {
       await api.post('/library', {
-        content_key: key,
+        content_key: bk,
         content_title: content?.title,
         content_poster: content?.poster,
         content_type: content?.type,
@@ -140,7 +141,7 @@ export default function ContentDetail() {
   if (!content) {
     return (
       <div className="max-w-[1400px] mx-auto px-6 py-10 text-gray-500">
-        İçerik bulunamadı. <Link href="/" className="text-[#c0392b] hover:underline">Ana sayfaya dön</Link>
+        İçerik bulunamadı. <Link href="/" className="text-honey hover:underline">Ana sayfaya dön</Link>
       </div>
     );
   }
@@ -153,9 +154,9 @@ export default function ContentDetail() {
         {content.backdrop ? (
           <img src={content.backdrop} alt="" className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full bg-gradient-to-b from-[#1a1a1a] to-[#000000]" />
+          <div className="w-full h-full bg-gradient-to-b from-surface2 to-ink" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#000000] via-[#000000]/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/50 to-transparent" />
       </div>
 
       <div className="max-w-[1400px] mx-auto px-6 relative -mt-48 z-10 pb-12">
@@ -166,7 +167,7 @@ export default function ContentDetail() {
 
         <div className="flex flex-col sm:flex-row gap-8 mb-10">
           <div className="w-48 shrink-0 mx-auto sm:mx-0">
-            <div className="aspect-[2/3] rounded-2xl overflow-hidden bg-[#111] shadow-2xl shadow-black/50 border border-white/[0.06]">
+            <div className="aspect-[2/3] rounded-2xl overflow-hidden bg-surface shadow-2xl shadow-black/50 border border-white/[0.06]">
               {content.poster && (
                 <img src={content.poster} alt={content.title} className="w-full h-full object-cover" />
               )}
@@ -181,8 +182,8 @@ export default function ContentDetail() {
             )}
             <div className="flex items-center gap-3 text-sm text-gray-400 mb-5 flex-wrap">
               {content.rating > 0 && (
-                <span className="flex items-center gap-1 text-yellow-400 font-semibold">
-                  <Star size={14} className="fill-yellow-400" /> {content.rating.toFixed(1)}
+                <span className="flex items-center gap-1 text-honey font-semibold">
+                  <Star size={14} className="fill-honey" /> {content.rating.toFixed(1)}
                 </span>
               )}
               {content.year && <span>{content.year}</span>}
@@ -198,21 +199,21 @@ export default function ContentDetail() {
             <div className="flex gap-3 flex-wrap mb-6">
               {content.trailer && (
                 <a href={content.trailer} target="_blank" rel="noopener noreferrer"
-                  className="px-6 py-2.5 bg-[#c0392b] text-white rounded-xl text-sm font-semibold hover:bg-[#a93226] transition-colors flex items-center gap-2 shadow-lg shadow-[#c0392b]/20">
+                  className="px-6 py-2.5 bg-honey text-ink rounded-xl text-sm font-semibold hover:bg-honey-light transition-colors flex items-center gap-2 shadow-lg shadow-honey/20">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg>
                   Fragmanı İzle
                 </a>
               )}
               <button onClick={() => toggleLibrary('watched')}
                 className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
-                  libraryStatus === 'watched' ? 'bg-[#c0392b] text-white shadow-lg shadow-[#c0392b]/20' : 'bg-white/[0.04] border border-white/[0.06] text-gray-400 hover:text-white hover:bg-white/[0.08]'
+                  libraryStatus === 'watched' ? 'bg-honey text-ink shadow-lg shadow-honey/20' : 'bg-white/[0.04] border border-white/[0.06] text-gray-400 hover:text-white hover:bg-white/[0.08]'
                 }`}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 {libraryStatus === 'watched' ? 'İzlendi' : 'İzledim'}
               </button>
               <button onClick={() => toggleLibrary('watchlist')}
                 className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
-                  libraryStatus === 'watchlist' ? 'bg-white/20 text-white shadow-lg' : 'bg-white/[0.04] border border-white/[0.06] text-gray-400 hover:text-white hover:bg-white/[0.08]'
+                  libraryStatus === 'watchlist' ? 'bg-honey text-ink shadow-lg shadow-honey/20' : 'bg-white/[0.04] border border-white/[0.06] text-gray-400 hover:text-white hover:bg-white/[0.08]'
                 }`}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" /></svg>
                 {libraryStatus === 'watchlist' ? 'İzleyecek' : 'İzleyeceğim'}
@@ -222,14 +223,14 @@ export default function ContentDetail() {
         </div>
 
         <div className="mb-10">
-          <h2 className="text-[11px] uppercase tracking-[0.2em] text-gray-500 font-mono mb-3">OZET</h2>
+          <h2 className="text-[11px] uppercase tracking-[0.2em] text-gray-500 font-mono mb-3">ÖZET</h2>
           <p className="text-sm text-gray-300 leading-relaxed max-w-3xl">{content.overview || 'Açıklama bulunmuyor.'}</p>
         </div>
 
         <div className="mb-10">
-          <div className="bg-[#141210] border border-white/[0.06] rounded-2xl p-5 inline-block">
+          <div className="bg-surface border border-white/[0.06] rounded-2xl p-5 inline-block">
             <p className="text-xs text-gray-400 mb-2">
-                  Topluluk puanı: <span className="text-yellow-400 font-semibold">{rating.average || '—'}</span> ({rating.count} oy)
+                  Topluluk puanı: <span className="text-honey font-semibold">{rating.average || '—'}</span> ({rating.count} oy)
             </p>
             {user ? (
               <>
@@ -240,7 +241,7 @@ export default function ContentDetail() {
               </>
             ) : (
               <p className="text-xs text-gray-500">
-                Puan vermek için <Link href="/login" className="text-[#c0392b] hover:underline">giriş yap</Link>.
+                Puan vermek için <Link href="/login" className="text-honey hover:underline">giriş yap</Link>.
               </p>
             )}
           </div>
@@ -252,7 +253,7 @@ export default function ContentDetail() {
             <div className="flex gap-6 overflow-x-auto pb-4">
               {cast.map((c, i) => (
                 <div key={i} className="flex flex-col items-center shrink-0 w-24">
-                  <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1a1a1a] mb-2 border-2 border-white/5">
+                  <div className="w-20 h-20 rounded-full overflow-hidden bg-surface2 mb-2 border-2 border-white/5">
                     {c.image ? (
                       <img src={c.image} alt={c.name} className="w-full h-full object-cover" />
                     ) : (
@@ -273,7 +274,7 @@ export default function ContentDetail() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {content.similar.map((s) => (
                 <Link key={s.key} href={`/title/${s.key}`}
-                  className="group relative rounded-2xl overflow-hidden bg-[#141210] border border-white/[0.06] hover:border-white/15 transition-all">
+                  className="group relative rounded-2xl overflow-hidden bg-surface border border-white/[0.06] hover:border-white/15 transition-all">
                   <div className="aspect-[2/3] overflow-hidden relative">
                     {s.poster ? (
                       <img src={s.poster} alt={s.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
@@ -282,7 +283,7 @@ export default function ContentDetail() {
                     )}
                     {s.rating > 0 && (
                       <span className="absolute top-2 right-2 flex items-center gap-1 text-[10px] bg-black/70 backdrop-blur-sm text-white px-1.5 py-0.5 rounded-md">
-                        <Star size={10} className="text-yellow-400 fill-yellow-400" /> {s.rating.toFixed(1)}
+                        <Star size={10} className="text-honey fill-honey" /> {s.rating.toFixed(1)}
                       </span>
                     )}
                   </div>
@@ -301,23 +302,23 @@ export default function ContentDetail() {
             <form onSubmit={submitComment} className="flex gap-2 mb-6">
               <input value={draft} onChange={(e) => setDraft(e.target.value)}
                 placeholder="Bu içerik hakkında ne düşünüyorsun?"
-                className="flex-1 bg-[#141210] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm outline-none text-white placeholder:text-gray-600 focus:ring-1 focus:ring-[#c0392b]/50" />
-              <button type="submit" className="bg-[#c0392b] hover:bg-[#a93226] text-white font-semibold rounded-xl px-5 text-sm transition-colors shadow-lg shadow-[#c0392b]/20">
+                className="flex-1 bg-surface border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm outline-none text-white placeholder:text-gray-600 focus:ring-1 focus:ring-honey/50" />
+              <button type="submit" className="bg-honey hover:bg-honey-light text-ink font-semibold rounded-xl px-5 text-sm transition-colors shadow-lg shadow-honey/20">
                 Gönder
               </button>
             </form>
           ) : (
             <p className="text-sm text-gray-500 mb-6">
-              Yorum yapmak için <Link href="/login" className="text-[#c0392b] hover:underline">giriş yap</Link>.
+              Yorum yapmak için <Link href="/login" className="text-honey hover:underline">giriş yap</Link>.
             </p>
           )}
           <div className="flex flex-col gap-3">
             {comments.length === 0 && <p className="text-sm text-gray-500">Henüz yorum yok. İlk yorumu sen yaz.</p>}
             {comments.map((c) => (
-              <div key={c.id} className="bg-[#141210] border border-white/[0.06] rounded-2xl p-4">
+              <div key={c.id} className="bg-surface border border-white/[0.06] rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-[#c0392b] flex items-center justify-center text-[11px] font-bold text-white shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-honey flex items-center justify-center text-[11px] font-bold text-ink shrink-0">
                       {c.user.username[0].toUpperCase()}
                     </div>
                     <span className="text-sm font-medium text-white">{c.user.username}</span>

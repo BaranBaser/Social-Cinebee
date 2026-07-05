@@ -23,10 +23,10 @@ function ProfileContent() {
 
   return (
     <div className="max-w-lg mx-auto px-4 py-10">
-      <h1 className="font-display text-4xl tracking-wide text-cream mb-6">PROFILIM</h1>
+      <h1 className="font-display text-4xl tracking-wide text-white mb-6">PROFİLİM</h1>
 
       <div className="flex items-center gap-4 mb-8">
-        <div className="w-16 h-16 rounded-full bg-velvet flex items-center justify-center text-2xl font-semibold overflow-hidden">
+        <div className="w-16 h-16 rounded-full bg-honey flex items-center justify-center text-2xl font-semibold text-ink overflow-hidden">
           {avatarUrl ? (
             <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
           ) : (
@@ -34,10 +34,10 @@ function ProfileContent() {
           )}
         </div>
         <div>
-          <p className="text-lg font-medium text-cream">{user.username}</p>
+          <p className="text-lg font-medium text-white">{user.username}</p>
           <p className="text-sm text-muted">{user.email}</p>
           {user.role === 'admin' && (
-            <span className="text-[11px] uppercase tracking-wider text-marquee font-mono">Yönetici</span>
+            <span className="text-[11px] uppercase tracking-wider text-honey font-mono">Yönetici</span>
           )}
         </div>
       </div>
@@ -49,7 +49,7 @@ function ProfileContent() {
             value={avatarUrl}
             onChange={(e) => setAvatarUrl(e.target.value)}
             placeholder="https://..."
-            className="w-full bg-surface2 rounded-md px-3 py-2 text-sm text-cream outline-none focus:ring-1 focus:ring-marquee"
+            className="w-full bg-surface2 rounded-md px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-honey"
           />
         </div>
         <div>
@@ -59,12 +59,12 @@ function ProfileContent() {
             onChange={(e) => setBio(e.target.value)}
             rows={4}
             placeholder="Favori türlerin, izlediğin son diziler..."
-            className="w-full bg-surface2 rounded-md px-3 py-2 text-sm text-cream outline-none focus:ring-1 focus:ring-marquee resize-none"
+            className="w-full bg-surface2 rounded-md px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-honey resize-none"
           />
         </div>
         <button
           type="submit"
-          className="bg-marquee hover:bg-marquee2 text-ink font-semibold rounded-md py-2.5 text-sm transition-colors"
+          className="bg-honey hover:bg-honey-light text-ink font-semibold rounded-md py-2.5 text-sm transition-colors"
         >
           {saved ? 'Kaydedildi ✓' : 'Kaydet'}
         </button>

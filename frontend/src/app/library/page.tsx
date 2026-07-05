@@ -58,7 +58,7 @@ function LibraryContent() {
           onClick={() => setTab('watched')}
           className={`px-5 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${
             tab === 'watched'
-              ? 'bg-[#c0392b] text-white shadow-lg shadow-[#c0392b]/20'
+              ? 'bg-honey text-ink shadow-lg shadow-honey/20'
               : 'bg-white/[0.04] text-gray-500 hover:text-white border border-white/[0.06]'
           }`}
         >
@@ -69,7 +69,7 @@ function LibraryContent() {
           onClick={() => setTab('watchlist')}
           className={`px-5 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${
             tab === 'watchlist'
-              ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20'
+              ? 'bg-honey text-ink shadow-lg shadow-honey/20'
               : 'bg-white/[0.04] text-gray-500 hover:text-white border border-white/[0.06]'
           }`}
         >
@@ -82,8 +82,8 @@ function LibraryContent() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex flex-col gap-2">
-              <div className="aspect-[2/3] rounded-2xl animate-shimmer bg-[#1a1a1a]" />
-              <div className="h-4 rounded-md animate-shimmer bg-[#1a1a1a] w-3/4 mt-1" />
+              <div className="aspect-[2/3] rounded-xl animate-shimmer bg-surface2" />
+              <div className="h-4 rounded-md animate-shimmer bg-surface2 w-3/4 mt-1" />
             </div>
           ))}
         </div>
@@ -114,7 +114,7 @@ function LibraryContent() {
               <button
                 onClick={() => removeItem(item.content_key)}
                 className="absolute top-3 right-3 z-10 p-1.5 bg-black/70 backdrop-blur-sm rounded-lg text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                title="Kutuphaneden kaldir"
+                title="Kütüphaneden kaldır"
               >
                 <Trash2 size={14} />
               </button>

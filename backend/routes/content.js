@@ -1,5 +1,6 @@
 const express = require('express');
 const fetch = require('node-fetch');
+const db = require('../db');
 
 const router = express.Router();
 
@@ -8,24 +9,38 @@ const TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
 const TMDB_IMG_BACKDROP = 'https://image.tmdb.org/t/p/w1280';
 const JIKAN_BASE = 'https://api.jikan.moe/v4';
 
-function tmdbKey() {
-  const key = process.env.TMDB_API_KEY;
-  if (!key || key === 'buraya_tmdb_api_anahtariniz') return null;
-  return key;
-}
-
 function tmdbHeaders() {
-  const key = tmdbKey();
+  const key = process.env.TMDB_API_KEY;
   if (!key) return {};
-  if (key.startsWith('eyJ')) {
-    return { 'Authorization': `Bearer ${key}` };
-  }
+  if (key.startsWith('eyJ')) return { Authorization: `Bearer ${key}` };
   return {};
 }
 
-function tmdbParams(key) {
-  if (key.startsWith('eyJ')) return '';
+function tmdbParams() {
+  const key = process.env.TMDB_API_KEY;
+  if (!key || key.startsWith('eyJ')) return '';
   return `api_key=${key}&`;
+}
+
+function normalizeCache(row) {
+  return {
+    key: row.content_key,
+    type: row.type,
+    title: row.original_title || row.title,
+    tagline: '',
+    overview: row.overview || '',
+    poster: row.poster,
+    backdrop: row.backdrop,
+    rating: row.rating || 0,
+    year: row.year || '',
+    duration: row.duration || null,
+    genres: row.genres ? row.genres.split(', ') : [],
+    status: row.status || '',
+    number_of_seasons: row.number_of_seasons,
+    number_of_episodes: row.number_of_episodes,
+    tmdb_id: row.tmdb_id,
+    mal_id: row.mal_id,
+  };
 }
 
 function normalizeTmdb(item, type) {
@@ -52,13 +67,13 @@ function normalizeJikan(item) {
   return {
     key: `anime-${item.mal_id}`,
     type: 'anime',
-    title: item.title || item.title_english || 'Bilinmeyen',
+    title: item.title_english || item.title || 'Unknown',
     tagline: '',
     overview: item.synopsis || '',
     poster: item.images?.jpg?.image_url || null,
     backdrop: null,
     rating: item.score || 0,
-    year: item.year || (item.aired?.from ? item.aired.from.slice(0, 4) : ''),
+    year: item.year ? String(item.year) : (item.aired?.from ? item.aired.from.slice(0, 4) : ''),
     duration: item.episodes || null,
     genres: (item.genres || []).map((g) => g.name),
     status: item.status || '',
@@ -68,80 +83,71 @@ function normalizeJikan(item) {
   };
 }
 
-// GET /api/content/trending?type=movie|tv|anime&filter=popular|trending|new|most_watched|top_rated&page=1
+// GET /api/content/trending
 router.get('/trending', async (req, res) => {
   const type = req.query.type || 'movie';
   const filter = req.query.filter || 'popular';
-  const page = req.query.page || '1';
+  const page = parseInt(req.query.page) || 1;
+  const limit = 20;
+  const offset = (page - 1) * limit;
+
   try {
-    if (type === 'anime') {
-      let endpoint = 'top/anime';
-      let params = `limit=20&page=${page}`;
-      if (filter === 'new') endpoint = 'seasons/now';
-      else if (filter === 'trending') params = `limit=20&filter=bypopularity&page=${page}`;
-      const r = await fetch(`${JIKAN_BASE}/${endpoint}?${params}`);
-      const data = await r.json();
-      return res.json({ results: (data.data || []).map(normalizeJikan) });
+    // Her filtre tek bir category'ye karşılık gelir
+    // rowid = insertion order (preserves TMDB/Jikan API order per category)
+    const rows = db.prepare(
+      'SELECT * FROM content_cache WHERE type = ? AND category = ? LIMIT ? OFFSET ?'
+    ).all(type, filter, limit, offset);
+
+    const countRow = db.prepare(
+      'SELECT COUNT(*) as c FROM content_cache WHERE type = ? AND category = ?'
+    ).get(type, filter);
+
+    const total = countRow?.c || 0;
+
+    if (total > 0) {
+      return res.json({
+        results: rows.map(normalizeCache),
+        hasMore: offset + limit < total,
+        total,
+        source: 'cache',
+      });
     }
 
-    const key = tmdbKey();
-    if (!key) return res.status(200).json({ results: [], warning: 'TMDB_API_KEY tanimli degil.' });
-
-    let path;
-    switch (filter) {
-      case 'trending':
-        path = `trending/${type}/week`;
-        break;
-      case 'new':
-        path = type === 'tv' ? 'tv/on_the_air' : 'movie/upcoming';
-        break;
-      case 'most_watched':
-        path = type === 'tv' ? 'tv/top_rated' : 'movie/top_rated';
-        break;
-      case 'top_rated':
-        path = type === 'tv' ? 'tv/top_rated' : 'movie/top_rated';
-        break;
-      default:
-        path = type === 'tv' ? 'tv/popular' : 'movie/popular';
-    }
-
-    const r = await fetch(`${TMDB_BASE}/${path}?${tmdbParams(key)}page=${page}`, {
-      headers: tmdbHeaders(),
+    // Kategori boşsa boş dön (fallback tüm içeriği göstermesin)
+    return res.json({
+      results: [],
+      hasMore: false,
+      total: 0,
+      source: 'cache',
     });
-    const data = await r.json();
-    return res.json({ results: (data.results || []).map((i) => normalizeTmdb(i, type)) });
   } catch (e) {
-    console.error(e);
+    console.error('Trending error:', e);
     res.status(500).json({ error: 'Icerik alinamadi.' });
   }
 });
 
-// GET /api/content/search?q=...&type=movie|tv|anime&page=1
+// GET /api/content/search?q=...
 router.get('/search', async (req, res) => {
   const q = (req.query.q || '').toString();
   const type = req.query.type || 'movie';
-  const page = req.query.page || '1';
   if (!q.trim()) return res.json({ results: [] });
 
   try {
-    if (type === 'anime') {
-      const r = await fetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(q)}&limit=20&page=${page}`);
-      const data = await r.json();
-      return res.json({ results: (data.data || []).map(normalizeJikan) });
+    const typeFilter = type === 'anime' ? 'anime' : type;
+    // Deduplicate by tmdb_id/mal_id — same movie can exist in multiple categories
+    const rows = db.prepare(
+      `SELECT * FROM content_cache WHERE (title LIKE ? OR original_title LIKE ?) AND type = ?
+       GROUP BY COALESCE(tmdb_id, mal_id)
+       ORDER BY rating DESC LIMIT 40`
+    ).all(`%${q}%`, `%${q}%`, typeFilter);
+
+    if (rows.length > 0) {
+      return res.json({ results: rows.map(normalizeCache), source: 'cache' });
     }
 
-    const key = tmdbKey();
-    if (!key) return res.status(200).json({ results: [], warning: 'TMDB_API_KEY tanimli degil.' });
-
-    const path = type === 'tv' ? 'search/tv' : 'search/movie';
-    const r = await fetch(
-      `${TMDB_BASE}/${path}?${tmdbParams(key)}query=${encodeURIComponent(q)}&page=${page}`,
-      { headers: tmdbHeaders() }
-    );
-    const data = await r.json();
-    return res.json({ results: (data.results || []).map((i) => normalizeTmdb(i, type)) });
+    return res.json({ results: [], source: 'cache' });
   } catch (e) {
-    console.error(e);
+    console.error('Search error:', e);
     res.status(500).json({ error: 'Arama basarisiz.' });
   }
 });
@@ -149,90 +155,108 @@ router.get('/search', async (req, res) => {
 // GET /api/content/detail?key=movie-550
 router.get('/detail', async (req, res) => {
   const key = (req.query.key || '').toString();
-  const [type, id] = key.split('-');
-  if (!type || !id) return res.status(400).json({ error: 'Gecersiz icerik anahtari.' });
+  if (!key) return res.status(400).json({ error: 'Gecersiz icerik anahtari.' });
 
   try {
+    // 1. Try exact content_key match (handles both old "movie-550" and new "movie-550-popular")
+    let cached = db.prepare('SELECT * FROM content_cache WHERE content_key = ?').get(key);
+
+    // 2. If no exact match, parse key and look up by type+tmdb_id or type+mal_id
+    if (!cached) {
+      const parts = key.split('-');
+      const type = parts[0]; // movie, tv, anime
+      const id = parseInt(parts[1], 10);
+
+      if (type === 'anime') {
+        cached = db.prepare('SELECT * FROM content_cache WHERE type = ? AND mal_id = ? LIMIT 1').get(type, id);
+      } else if (type === 'movie' || type === 'tv') {
+        cached = db.prepare('SELECT * FROM content_cache WHERE type = ? AND tmdb_id = ? LIMIT 1').get(type, id);
+      }
+    }
+
+    if (cached) {
+      const content = normalizeCache(cached);
+      if (cached.source === 'tmdb' && cached.tmdb_id) {
+        try {
+          const r = await fetch(`${TMDB_BASE}/${cached.type}/${cached.tmdb_id}?${tmdbParams()}append_to_response=credits,similar,videos`, { headers: tmdbHeaders() });
+          const data = await r.json();
+          content.credits = {
+            cast: (data.credits?.cast || []).slice(0, 12).map(c => ({
+              name: c.name, character: c.character,
+              image: c.profile_path ? `${TMDB_IMG}${c.profile_path}` : null,
+            })),
+          };
+          content.similar = (data.similar?.results || []).slice(0, 6).map(i => normalizeTmdb(i, cached.type));
+          const trailers = (data.videos?.results || []).filter(v => v.type === 'Trailer' && v.site === 'YouTube');
+          content.trailer = trailers.length > 0 ? `https://www.youtube.com/watch?v=${trailers[0].key}` : null;
+          content.tagline = data.tagline || '';
+          content.genres = (data.genres || []).map(g => g.name);
+          content.duration = data.runtime || null;
+        } catch {}
+      }
+      if (cached.source === 'jikan' && cached.mal_id) {
+        try {
+          const r = await fetch(`${JIKAN_BASE}/anime/${cached.mal_id}/full`);
+          const data = await r.json();
+          content.characters = (data.data?.characters || []).slice(0, 12).map(c => ({
+            name: c.character?.name || '',
+            image: c.character?.images?.jpg?.image_url || null,
+            role: c.role || '',
+          }));
+          content.trailer = data.data?.trailer?.url || null;
+        } catch {}
+      }
+      return res.json({ content });
+    }
+
+    // 3. Not in cache — fetch live
+    const parts = key.split('-');
+    const type = parts[0];
+    const id = parseInt(parts[1], 10);
+
     if (type === 'anime') {
       const r = await fetch(`${JIKAN_BASE}/anime/${id}/full`);
       const data = await r.json();
       if (!data.data) return res.status(404).json({ error: 'Icerik bulunamadi.' });
-
       const anime = normalizeJikan(data.data);
-      anime.characters = (data.data.characters || []).slice(0, 12).map((c) => ({
+      anime.characters = (data.data.characters || []).slice(0, 12).map(c => ({
         name: c.character?.name || '',
         image: c.character?.images?.jpg?.image_url || null,
         role: c.role || '',
       }));
-      anime.trailer = data.data.trailer?.url || null;
-      anime.related = [];
-      if (data.data.relations) {
-        for (const rel of data.data.relations) {
-          if (rel.entry) {
-            for (const entry of rel.entry) {
-              anime.related.push({
-                key: `anime-${entry.mal_id}`,
-                title: entry.name,
-                type: 'anime',
-              });
-            }
-          }
-        }
-      }
-      anime.related = anime.related.slice(0, 6);
+      anime.trailer = data.data?.trailer?.url || null;
       return res.json({ content: anime });
     }
 
-    const key2 = tmdbKey();
-    if (!key2) return res.status(200).json({ content: null, warning: 'TMDB_API_KEY tanimli degil.' });
-
-    const r = await fetch(
-      `${TMDB_BASE}/${type}/${id}?${tmdbParams(key2)}append_to_response=credits,similar,videos`,
-      { headers: tmdbHeaders() }
-    );
+    const tmdbKey = process.env.TMDB_API_KEY;
+    if (!tmdbKey) return res.status(200).json({ content: null });
+    const r = await fetch(`${TMDB_BASE}/${type}/${id}?${tmdbParams()}append_to_response=credits,similar,videos`, { headers: tmdbHeaders() });
     const data = await r.json();
     if (data.success === false) return res.status(404).json({ error: 'Icerik bulunamadi.' });
-
     const content = normalizeTmdb(data, type);
     content.credits = {
-      cast: (data.credits?.cast || []).slice(0, 12).map((c) => ({
-        name: c.name || '',
-        character: c.character || '',
+      cast: (data.credits?.cast || []).slice(0, 12).map(c => ({
+        name: c.name, character: c.character,
         image: c.profile_path ? `${TMDB_IMG}${c.profile_path}` : null,
       })),
     };
-    content.similar = (data.similar?.results || []).slice(0, 6).map((i) => normalizeTmdb(i, type));
-    const trailers = (data.videos?.results || []).filter(
-      (v) => v.type === 'Trailer' && v.site === 'YouTube'
-    );
-    content.trailer = trailers.length > 0
-      ? `https://www.youtube.com/watch?v=${trailers[0].key}`
-      : null;
-
+    content.similar = (data.similar?.results || []).slice(0, 6).map(i => normalizeTmdb(i, type));
+    const trailers = (data.videos?.results || []).filter(v => v.type === 'Trailer' && v.site === 'YouTube');
+    content.trailer = trailers.length > 0 ? `https://www.youtube.com/watch?v=${trailers[0].key}` : null;
     return res.json({ content });
   } catch (e) {
-    console.error(e);
+    console.error('Detail error:', e);
     res.status(500).json({ error: 'Detay alinamadi.' });
   }
 });
 
-// GET /api/content/genres?type=movie|tv
-router.get('/genres', async (req, res) => {
-  const type = req.query.type || 'movie';
-  if (type === 'anime') {
-    return res.json({ genres: [] });
-  }
-  const key = tmdbKey();
-  if (!key) return res.status(200).json({ genres: [], warning: 'TMDB_API_KEY tanimli degil.' });
-  try {
-    const r = await fetch(`${TMDB_BASE}/genre/${type}/list?${tmdbParams(key)}`, {
-      headers: tmdbHeaders(),
-    });
-    const data = await r.json();
-    res.json({ genres: data.genres || [] });
-  } catch (e) {
-    res.status(500).json({ genres: [] });
-  }
+// GET /api/content/stats
+router.get('/stats', (req, res) => {
+  const movies = db.prepare("SELECT COUNT(*) as c FROM content_cache WHERE type='movie'").get().c;
+  const tv = db.prepare("SELECT COUNT(*) as c FROM content_cache WHERE type='tv'").get().c;
+  const anime = db.prepare("SELECT COUNT(*) as c FROM content_cache WHERE type='anime'").get().c;
+  const lastSync = db.prepare("SELECT MAX(synced_at) as t FROM content_cache").get().t;
+  res.json({ movies, tv, anime, total: movies + tv + anime, lastSync });
 });
 
 module.exports = router;

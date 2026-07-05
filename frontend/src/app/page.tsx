@@ -1,250 +1,269 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 import ContentCard from '@/components/ContentCard';
-
-const TYPES = [
-  { key: 'movie', label: 'Filmler', icon: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect width="18" height="18" x="3" y="3" rx="2" /><path d="M7 3v18" /><path d="M3 7.5h4" /><path d="M3 12h18" /><path d="M3 16.5h4" /><path d="M17 3v18" /><path d="M17 7.5h4" /><path d="M17 16.5h4" />
-    </svg>
-  )},
-  { key: 'tv', label: 'Diziler', icon: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect width="20" height="15" x="2" y="3" rx="2" /><polyline points="8 21 12 17 16 21" />
-    </svg>
-  )},
-  { key: 'anime', label: 'Anime', icon: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-    </svg>
-  )},
-];
-
-const FILTERS = [
-  { key: 'popular', label: 'POPÜLER' },
-  { key: 'trending', label: 'TREND' },
-  { key: 'new', label: 'YENİ ÇIKANLAR' },
-  { key: 'most_watched', label: 'EN ÇOK İZLENENLER' },
-  { key: 'top_rated', label: 'EN YÜKSEK PUANLI' },
-];
 
 interface ContentItem {
   key: string;
   type: string;
   title: string;
   poster: string | null;
+  backdrop?: string | null;
   rating: number;
   year: string;
+  overview?: string;
+  status?: string;
 }
 
-export default function Home() {
+const TYPES = [
+  { key: 'movie', label: 'Filmler' },
+  { key: 'tv', label: 'Diziler' },
+  { key: 'anime', label: 'Animeler' },
+];
+
+function ScrollRow({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  return (
+    <div className="relative group">
+      <div ref={ref} className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function HomeInner() {
   const searchParams = useSearchParams();
   const queryParam = searchParams.get('q') || '';
+  const typeParam = searchParams.get('type') || '';
 
-  const [type, setType] = useState('movie');
-  const [filter, setFilter] = useState('popular');
-  const [items, setItems] = useState<ContentItem[]>([]);
+  const [type, setType] = useState(typeParam || 'movie');
   const [query, setQuery] = useState(queryParam);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [loadingHome, setLoadingHome] = useState(true);
   const [warning, setWarning] = useState('');
-  const [lastUpdate, setLastUpdate] = useState('');
-  const observerTarget = useRef(null);
+  const [featured, setFeatured] = useState<ContentItem | null>(null);
+  const [popular, setPopular] = useState<ContentItem[]>([]);
+  const [trending, setTrending] = useState<ContentItem[]>([]);
+  const [newItems, setNewItems] = useState<ContentItem[]>([]);
+  const [topRated, setTopRated] = useState<ContentItem[]>([]);
+  const [mostWatched, setMostWatched] = useState<ContentItem[]>([]);
 
-  const loadContent = useCallback(async (pageNum = 1) => {
-    if (pageNum === 1) setLoading(true);
-    else setLoadingMore(true);
+  useEffect(() => {
+    if (typeParam) setType(typeParam);
+  }, [typeParam]);
 
+  const loadHomeData = useCallback(async () => {
+    setLoadingHome(true);
     try {
-      const endpoint = query.trim() ? '/content/search' : '/content/trending';
-      const params = query.trim()
-        ? { q: query, type, page: pageNum }
-        : { type, filter, page: pageNum };
-      const { data } = await api.get(endpoint, { params });
-      
-      const newItems = data.results || [];
-      if (newItems.length < 20) setHasMore(false);
-      else setHasMore(true);
+      const [popRes, trendRes, newRes, topRes, watchRes] = await Promise.all([
+        api.get('/content/trending', { params: { type, filter: 'popular', page: 1 } }),
+        api.get('/content/trending', { params: { type, filter: 'trending', page: 1 } }),
+        api.get('/content/trending', { params: { type, filter: 'new', page: 1 } }),
+        api.get('/content/trending', { params: { type, filter: 'top_rated', page: 1 } }),
+        api.get('/content/trending', { params: { type, filter: 'most_watched', page: 1 } }),
+      ]);
 
-      if (pageNum === 1) setItems(newItems);
-      else setItems(prev => [...prev, ...newItems]);
-      
-      setWarning(data.warning || '');
-      setLastUpdate(new Date().toLocaleTimeString('tr-TR'));
-    } catch {
-      if (pageNum === 1) setItems([]);
+      const popResults = popRes.data.results || [];
+      if (popResults.length > 0) setFeatured(popResults[0]);
+      setPopular(popResults.slice(1, 13));
+      setTrending((trendRes.data.results || []).slice(0, 12));
+      setNewItems((newRes.data.results || []).slice(0, 12));
+      setTopRated((topRes.data.results || []).slice(0, 12));
+      setMostWatched((watchRes.data.results || []).slice(0, 12));
+    } catch (err) {
+      console.error('loadHomeData error:', err);
     } finally {
+      setLoadingHome(false);
       setLoading(false);
-      setLoadingMore(false);
     }
-  }, [type, filter, query]);
+  }, [type]);
 
   useEffect(() => {
-    setPage(1);
-    loadContent(1);
-  }, [loadContent]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
-          const nextPage = page + 1;
-          setPage(nextPage);
-          loadContent(nextPage);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
+    if (!query.trim()) {
+      loadHomeData();
     }
-
-    return () => {
-      if (observerTarget.current) {
-        observer.unobserve(observerTarget.current);
-      }
-    };
-  }, [observerTarget, hasMore, loading, loadingMore, page, loadContent]);
+  }, [loadHomeData, query]);
 
   useEffect(() => {
     if (queryParam) setQuery(queryParam);
   }, [queryParam]);
 
   return (
-    <div className="max-w-[1400px] mx-auto px-4 md:px-8 lg:px-16">
-      {/* Hero Section */}
-      <div className="pt-12 pb-20">
-        <p className="text-[#c0392b] text-[11px] font-mono uppercase tracking-[0.2em] mb-3">CINEBEE - SOCIAL - TRACKER</p>
-        <h1 className="font-display text-6xl md:text-7xl lg:text-8xl tracking-wide text-white mb-3" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-          Sinematik Keşif
-        </h1>
-        <p className="text-gray-300 text-base md:text-lg max-w-xl mb-10">
-          Ruh halinize göre dizi, film ve anime önerileri. Tek bir çatı altında.
-        </p>
-        <div className="flex gap-3">
-          <button
-            onClick={() => { setFilter('popular'); setQuery(''); }}
-            className="px-6 py-2.5 bg-[#c0392b] text-white rounded-lg text-sm font-semibold hover:bg-[#a93226] transition-colors"
-          >
-            Keşfet
-          </button>
-          <Link
-            href="/ai-assistant"
-            className="px-6 py-2.5 bg-white/5 border border-white/10 text-white rounded-lg text-sm font-medium hover:bg-white/10 transition-colors flex items-center gap-2"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
-            </svg>
-            AI Asistanını Dene
-          </Link>
-        </div>
-      </div>
+    <div className="px-6 py-6">
+      {query.trim() ? (
+        <SearchResults query={query} type={type} setType={setType} />
+      ) : (
+        <div className="space-y-10">
+          {featured && (
+            <div className="relative rounded-2xl overflow-hidden bg-surface border border-white/[0.06] min-h-[340px] flex items-end">
+              <div className="absolute inset-0">
+                {featured.backdrop && (
+                  <img src={featured.backdrop} alt={featured.title} className="w-full h-full object-cover opacity-40" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/60 to-transparent" />
+              </div>
+              <div className="relative z-10 p-8 max-w-xl">
+                <span className="inline-block text-[10px] font-black tracking-[0.2em] bg-honey text-ink px-3 py-1 rounded mb-4 uppercase">
+                  Öne Çıkan
+                </span>
+                <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">{featured.title}</h2>
+                <div className="flex items-center gap-3 mb-3 text-sm text-muted">
+                  <span>{featured.year}</span>
+                  {featured.rating > 0 && (
+                    <span className="flex items-center gap-1">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#f5c518" stroke="#f5c518" strokeWidth="1">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                      </svg>
+                      {featured.rating.toFixed(1)}
+                    </span>
+                  )}
+                  <span className="text-xs bg-white/[0.08] px-2 py-0.5 rounded uppercase font-semibold">
+                    {featured.type === 'tv' ? 'Dizi' : featured.type === 'anime' ? 'Anime' : 'Film'}
+                  </span>
+                </div>
+                {featured.overview && (
+                  <p className="text-sm text-gray-300 leading-relaxed mb-5 line-clamp-2">{featured.overview}</p>
+                )}
+                <div className="flex gap-3">
+                  <Link href={`/title/${featured.key}`} className="px-6 py-2.5 bg-honey text-ink rounded-lg text-sm font-bold hover:bg-honey-light transition-colors">
+                    Hemen İzle
+                  </Link>
+                  <button className="px-6 py-2.5 border border-white/20 text-white rounded-lg text-sm font-medium hover:bg-white/[0.06] transition-colors">
+                    + Listeye Ekle
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
-      {/* Category Tabs */}
-      <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            {TYPES.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setType(t.key)}
+                className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+                  type === t.key
+                    ? 'bg-honey text-ink shadow-lg shadow-honey/20'
+                    : 'bg-white/[0.04] text-muted hover:text-white hover:bg-white/[0.08] border border-white/[0.06]'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <Section title="Şimdi Popüler" items={popular} loading={loadingHome} type={type} filter="popular" />
+          <Section title="Trend" items={trending} loading={loadingHome} type={type} filter="trending" />
+          <Section title="Yeni Eklenenler" items={newItems} loading={loadingHome} type={type} filter="new" />
+          <Section title="En Yüksek Puanlılar" items={topRated} loading={loadingHome} type={type} filter="top_rated" />
+          <Section title="En Çok İzlenenler" items={mostWatched} loading={loadingHome} type={type} filter="most_watched" />
+        </div>
+      )}
+
+      {warning && (
+        <div className="fixed bottom-6 right-6 max-w-sm text-sm text-yellow-400 bg-yellow-400/10 border border-yellow-400/30 rounded-xl px-5 py-4 z-50">
+          {warning}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Section({ title, items, loading, type, filter }: { title: string; items: ContentItem[]; loading: boolean; type: string; filter: string }) {
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold text-white">{title}</h2>
+        <Link href={`/discover?type=${type}&filter=${filter}`} className="text-xs text-honey hover:text-honey-light transition-colors font-medium">
+          Tümünü Gör →
+        </Link>
+      </div>
+      {loading ? (
+        <div className="flex gap-3 overflow-hidden">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex-shrink-0 w-[160px]">
+              <div className="aspect-[2/3] rounded-xl animate-shimmer bg-surface2" />
+              <div className="h-4 rounded-md animate-shimmer bg-surface2 w-3/4 mt-2" />
+              <div className="h-3 rounded-md animate-shimmer bg-surface2 w-1/2 mt-1" />
+            </div>
+          ))}
+        </div>
+      ) : items.length === 0 ? null : (
+        <ScrollRow>
+          {items.map((item, i) => (
+            <div key={`${item.key}-${i}`} className="flex-shrink-0 w-[160px]">
+              <ContentCard item={item} />
+            </div>
+          ))}
+        </ScrollRow>
+      )}
+    </section>
+  );
+}
+
+function SearchResults({ query, type, setType }: { query: string; type: string; setType: (t: string) => void }) {
+  const [items, setItems] = useState<ContentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    api.get('/content/search', { params: { q: query, type, page: 1 } })
+      .then(({ data }) => setItems(data.results || []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, [query, type]);
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-6">
         {TYPES.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => { setType(t.key); setQuery(''); }}
-            className={`px-5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-              type === t.key
-                ? 'bg-[#c0392b] text-white shadow-lg shadow-[#c0392b]/20'
-                : 'bg-white/[0.04] text-gray-400 hover:text-white hover:bg-white/[0.08] border border-white/[0.06]'
-            }`}
-          >
-            {t.icon}
+          <button key={t.key} onClick={() => setType(t.key)} className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+            type === t.key ? 'bg-honey text-ink' : 'bg-white/[0.06] text-muted hover:text-white hover:bg-white/[0.08] border border-white/[0.06]'
+          }`}>
             {t.label}
           </button>
         ))}
       </div>
-
-      {/* Filter Tabs */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => { setFilter(f.key); setQuery(''); }}
-              className={`px-3.5 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all ${
-                filter === f.key
-                  ? 'bg-[#c0392b]/90 text-white'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <select className="bg-white/[0.04] text-gray-400 text-xs font-medium px-3 py-1.5 rounded-lg border border-white/[0.06] outline-none cursor-pointer hover:bg-white/[0.08] transition-colors">
-            <option>Tümü</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Live Indicator */}
-      <div className="flex items-center gap-2 mb-6 text-gray-500 text-xs mt-10">
-        <span className="w-2 h-2 rounded-full bg-[#c0392b] animate-pulse-live" />
-        <span className="font-bold tracking-wider text-[#c0392b]">CANLI</span>
-        {lastUpdate && (
-          <span className="text-xs text-gray-400">
-            Son güncelleme {lastUpdate}
-          </span>
-        )}
-      </div>
-
-      {/* Warning */}
-      {warning && (
-        <div className="mb-6 text-sm text-yellow-400 bg-yellow-400/10 border border-yellow-400/30 rounded-xl px-5 py-4">
-          {warning} Backend klasöründeki <code className="text-yellow-300 font-mono">.env</code> dosyasına geçerli bir <code className="text-yellow-300 font-mono">TMDB_API_KEY</code> ekleyin. <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener" className="underline hover:text-yellow-200">Buradan ücretsiz alabilirsiniz</a>.
-        </div>
-      )}
-
-      {/* Content Grid */}
+      <h2 className="text-lg font-semibold text-white mb-4">&ldquo;{query}&rdquo; için sonuçlar</h2>
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="flex flex-col gap-2">
-              <div className="aspect-[2/3] rounded-2xl animate-shimmer bg-[#1a1a1a]" />
-              <div className="h-4 rounded-md animate-shimmer bg-[#1a1a1a] w-3/4 mt-1" />
-              <div className="h-3 rounded-md animate-shimmer bg-[#1a1a1a] w-1/2" />
+              <div className="aspect-[2/3] rounded-xl animate-shimmer bg-surface2" />
+              <div className="h-4 rounded-md animate-shimmer bg-surface2 w-3/4" />
             </div>
           ))}
         </div>
       ) : items.length === 0 ? (
-        <div className="text-gray-500 text-sm py-20 text-center">
-          {query ? `"${query}" için sonuç bulunamadı.` : 'İçerik bulunamadı.'}
-        </div>
+        <div className="text-muted text-sm py-20 text-center">&ldquo;{query}&rdquo; için sonuç bulunamadı.</div>
       ) : (
-        <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pb-10">
-            {items.map((item, index) => (
-              <ContentCard key={`${item.key}-${index}`} item={item} />
-            ))}
-          </div>
-          
-          {/* Intersection Observer Target */}
-          <div ref={observerTarget} className="h-20 flex items-center justify-center pb-20">
-            {loadingMore && (
-              <div className="flex gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#c0392b] animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2.5 h-2.5 rounded-full bg-[#c0392b] animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2.5 h-2.5 rounded-full bg-[#c0392b] animate-bounce" style={{ animationDelay: '300ms' }} />
-              </div>
-            )}
-            {!hasMore && items.length > 0 && !loadingMore && (
-              <span className="text-gray-500 text-sm">Daha fazla içerik bulunmuyor.</span>
-            )}
-          </div>
-        </>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          {items.map((item, i) => <ContentCard key={`${item.key}-${i}`} item={item} />)}
+        </div>
       )}
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="px-6 py-6">
+        <div className="space-y-10">
+          <div className="relative rounded-2xl overflow-hidden bg-surface border border-white/[0.06] min-h-[340px]">
+            <div className="absolute inset-0 animate-shimmer bg-surface2" />
+          </div>
+          <div className="flex gap-3">
+            {TYPES.map((t) => <div key={t.key} className="h-10 w-24 rounded-full animate-shimmer bg-surface2" />)}
+          </div>
+        </div>
+      </div>
+    }>
+      <HomeInner />
+    </Suspense>
   );
 }

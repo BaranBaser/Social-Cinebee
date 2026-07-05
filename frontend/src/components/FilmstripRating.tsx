@@ -22,8 +22,8 @@ export default function FilmstripRating({ value = 0, onRate, size = 'md', readOn
               onClick={() => onRate && onRate(f)}
               title={`${f}/10`}
               className={`${dims} rounded-[2px] transition-colors ${
-                filled ? 'bg-marquee' : 'bg-surface2 border border-white/10'
-              } ${!readOnly ? 'hover:bg-marquee2 cursor-pointer' : 'cursor-default'}`}
+                filled ? 'bg-honey' : 'bg-surface2 border border-white/10'
+              } ${!readOnly ? 'hover:bg-honey-light cursor-pointer' : 'cursor-default'}`}
             />
           );
         })}

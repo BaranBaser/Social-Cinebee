@@ -7,7 +7,14 @@ const nextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: 'image.tmdb.org' },
       { protocol: 'https', hostname: 'cdn.myanimelist.net' },
+      { protocol: 'https', hostname: 'i.imgur.com' },
     ],
+  },
+  async rewrites() {
+    return [
+      { source: '/api/:path*', destination: 'http://localhost:5000/api/:path*' },
+      { source: '/socket.io/:path*', destination: 'http://localhost:5000/socket.io/:path*' },
+    ];
   },
 };
 
