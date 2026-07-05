@@ -104,10 +104,10 @@ export default function Navbar({ onOpenChat }: { onOpenChat: () => void }) {
   return (
     <header className="sticky top-0 z-40 bg-[#161616]/90 backdrop-blur-xl border-b border-white/10 shadow-lg relative overflow-hidden">
       <div 
-        className="absolute inset-0 z-0 opacity-20 pointer-events-none mix-blend-screen"
+        className="absolute inset-0 z-0 opacity-40 pointer-events-none mix-blend-screen"
         style={{
           backgroundImage: 'url(/navbar_bg.png)',
-          backgroundSize: 'cover',
+          backgroundSize: 'contain',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat'
         }}
