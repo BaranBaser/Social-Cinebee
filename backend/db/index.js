@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
   bio: { type: String, default: '' },
   avatar_url: { type: String, default: '' },
   banner_url: { type: String, default: '' },
-  role: { type: String, default: 'user' },
+  role: { type: String, default: 'member' },
   is_banned: { type: Boolean, default: false },
   friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   friend_requests: [{

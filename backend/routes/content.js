@@ -167,7 +167,8 @@ router.get('/search', async (req, res) => {
 
   try {
     const typeFilter = type === 'anime' ? 'anime' : type;
-    const regex = new RegExp(q, 'i');
+    const fuzzyPattern = q.split(/[\s:.\-]+/).map(term => term.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ]/g, '')).filter(t => t.length > 0).join('.*');
+    const regex = new RegExp(fuzzyPattern || q, 'i');
     
     // Aggregate to group by tmdb_id/mal_id
     const rows = await ContentCache.aggregate([
@@ -184,7 +185,7 @@ router.get('/search', async (req, res) => {
         }
       },
       { $replaceRoot: { newRoot: "$doc" } },
-      { $sort: { rating: -1 } },
+      { $sort: { rating: -1, year: -1 } },
       { $limit: 40 }
     ]);
 

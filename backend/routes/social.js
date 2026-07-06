@@ -227,10 +227,14 @@ router.get('/search', requireAuth, async (req, res) => {
   if (!q || q.length < 2) return res.json({ users: [] });
   try {
     const me = await User.findById(req.user._id);
-    const users = await User.find({
+    const query = {
       username: { $regex: q, $options: 'i' },
       _id: { $ne: req.user._id }
-    }).select('username avatar_url bio').limit(10);
+    };
+    if (me.role !== 'admin') {
+      query.role = { $ne: 'admin' };
+    }
+    const users = await User.find(query).select('username avatar_url bio').limit(10);
 
     const results = users.map(u => {
       let relationship = 'none';

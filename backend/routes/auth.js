@@ -121,6 +121,9 @@ router.get('/users', requireAuth, async (req, res) => {
   const q = (req.query.q || '').toString().trim();
   try {
     let query = { _id: { $ne: req.user._id }, is_banned: false };
+    if (req.user.role !== 'admin') {
+      query.role = { $ne: 'admin' };
+    }
     if (q) {
       query.username = new RegExp(q, 'i');
     }

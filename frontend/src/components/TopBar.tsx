@@ -10,6 +10,8 @@ import AddFriendModal from './AddFriendModal';
 
 interface TopBarProps {
   onOpenChat: () => void;
+  socialCollapsed?: boolean;
+  setSocialCollapsed?: (val: boolean) => void;
 }
 
 interface Notification {
@@ -23,18 +25,29 @@ interface Notification {
   from_user: { id: string; username: string; avatar_url: string } | null;
 }
 
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr + 'Z').getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'az önce';
-  if (mins < 60) return `${mins}dk`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}sa`;
-  const days = Math.floor(hrs / 24);
-  return `${days}g`;
+function timeAgo(dateStr: string | any) {
+  if (!dateStr) return 'yakın zamanda';
+  try {
+    const dStr = String(dateStr);
+    const date = new Date(dStr + (dStr.endsWith('Z') ? '' : 'Z'));
+    if (isNaN(date.getTime())) return 'yakın zamanda';
+    const diff = Date.now() - date.getTime();
+    if (diff < 0) return 'az önce';
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'az önce';
+    if (mins < 60) return `${mins}dk`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}sa`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return `${days}g`;
+    const months = Math.floor(days / 30);
+    return `${months} ay`;
+  } catch (e) {
+    return 'yakın zamanda';
+  }
 }
 
-export default function TopBar({ onOpenChat }: TopBarProps) {
+export default function TopBar({ onOpenChat, socialCollapsed, setSocialCollapsed }: TopBarProps) {
   const { user, logout } = useAuth();
   const { unreadCount, refresh } = useNotifications();
   const router = useRouter();
@@ -209,11 +222,23 @@ export default function TopBar({ onOpenChat }: TopBarProps) {
 
               <button
                 onClick={onOpenChat}
-                className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-muted hover:text-white"
+                className="p-2 rounded-lg hover:bg-white/[0.06] active:scale-95 transition-all text-muted hover:text-white"
                 title="Mesajlar"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" />
+                </svg>
+              </button>
+
+              <button
+                onClick={() => setSocialCollapsed?.(!socialCollapsed)}
+                className="lg:hidden p-2 rounded-lg bg-honey/10 text-honey hover:bg-honey/20 active:scale-95 transition-all"
+                title="Sosyal Panel"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  <line x1="9" y1="10" x2="15" y2="10"/>
+                  <line x1="12" y1="7" x2="12" y2="13"/>
                 </svg>
               </button>
 

@@ -32,17 +32,26 @@ interface Comment {
   created_at: string;
 }
 
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'az once';
-  if (mins < 60) return `${mins}dk once`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}sa once`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days} gun once`;
-  const months = Math.floor(days / 30);
-  return `${months} ay once`;
+function timeAgo(dateStr: string | any) {
+  if (!dateStr) return 'yakın zamanda';
+  try {
+    const dStr = String(dateStr);
+    const date = new Date(dStr + (dStr.endsWith('Z') ? '' : 'Z'));
+    if (isNaN(date.getTime())) return 'yakın zamanda';
+    const diff = Date.now() - date.getTime();
+    if (diff < 0) return 'az önce';
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'az önce';
+    if (mins < 60) return `${mins}dk`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}sa`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return `${days}g`;
+    const months = Math.floor(days / 30);
+    return `${months} ay`;
+  } catch (e) {
+    return 'yakın zamanda';
+  }
 }
 
 function ProfileContent() {
@@ -218,7 +227,9 @@ function ProfileContent() {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-white truncate">{displayName}</h1>
               {displayRole === 'admin' && (
-                <span className="px-2 py-0.5 bg-honey/15 text-honey text-[10px] font-bold uppercase tracking-wider rounded shrink-0">Admin</span>
+                <span className="px-2 py-0.5 bg-honey/15 text-honey text-[10px] font-bold uppercase tracking-wider rounded shrink-0 flex items-center gap-1" title="Geliştirici">
+                  <span className="text-sm">🍯🔧</span> Admin
+                </span>
               )}
             </div>
             {displayCreatedAt && (
@@ -377,7 +388,6 @@ function ProfileContent() {
         {activeTab === 'comments' && (
           <div>
             {/* Comment Input */}
-            {!isOwnProfile && (
               <div className="flex gap-3 mb-6">
                 <div className="w-9 h-9 rounded-full bg-surface2 border border-white/[0.06] flex items-center justify-center text-sm font-semibold text-white overflow-hidden shrink-0">
                   {user.avatar_url ? <img src={user.avatar_url} alt="" className="w-full h-full object-cover" /> : user.username[0].toUpperCase()}
@@ -400,7 +410,6 @@ function ProfileContent() {
                   </button>
                 </div>
               </div>
-            )}
 
             {/* Comments List */}
             {comments.length === 0 ? (

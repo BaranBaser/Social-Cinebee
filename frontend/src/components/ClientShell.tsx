@@ -20,9 +20,9 @@ function ShellInner({ children }: { children: React.ReactNode }) {
           <Sidebar />
         </Suspense>
 
-        <div className={`flex-1 flex flex-col ml-[240px] transition-all duration-300 ${user ? (socialCollapsed ? 'mr-[52px]' : 'mr-0 lg:mr-[300px]') : ''}`}>
+        <div className={`flex-1 flex flex-col md:ml-[240px] pb-[60px] md:pb-0 transition-all duration-300 ${user ? (socialCollapsed ? 'md:mr-[52px]' : 'mr-0 lg:mr-[300px]') : ''}`}>
           <Suspense fallback={null}>
-            <TopBar onOpenChat={() => setChatOpen(true)} />
+            <TopBar onOpenChat={() => setChatOpen(true)} socialCollapsed={socialCollapsed} setSocialCollapsed={setSocialCollapsed} />
           </Suspense>
           <main className="flex-1">{children}</main>
         </div>

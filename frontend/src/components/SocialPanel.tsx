@@ -12,15 +12,26 @@ interface UserItem {
   bio?: string;
 }
 
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr + 'Z').getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'az once';
-  if (mins < 60) return `${mins}dk`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}sa`;
-  const days = Math.floor(hrs / 24);
-  return `${days}g`;
+function timeAgo(dateStr: string | any) {
+  if (!dateStr) return 'yakın zamanda';
+  try {
+    const dStr = String(dateStr);
+    const date = new Date(dStr + (dStr.endsWith('Z') ? '' : 'Z'));
+    if (isNaN(date.getTime())) return 'yakın zamanda';
+    const diff = Date.now() - date.getTime();
+    if (diff < 0) return 'az önce';
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'az önce';
+    if (mins < 60) return `${mins}dk`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}sa`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return `${days}g`;
+    const months = Math.floor(days / 30);
+    return `${months} ay`;
+  } catch (e) {
+    return 'yakın zamanda';
+  }
 }
 
 interface SocialPanelProps {
@@ -108,12 +119,12 @@ export default function SocialPanel({ collapsed, onToggle }: SocialPanelProps) {
   }
 
   return (
-    <aside className="hidden lg:flex flex-col fixed right-0 top-0 bottom-0 w-[300px] bg-ink border-l border-white/[0.06] z-20 overflow-hidden">
+    <aside className="flex flex-col fixed right-0 top-0 bottom-0 w-full lg:w-[300px] bg-ink lg:border-l border-white/[0.06] z-[60] lg:z-20 overflow-hidden shadow-2xl lg:shadow-none">
       <div className="flex items-center border-b border-white/[0.06] shrink-0">
         <div className="flex flex-1">
           <button
             onClick={() => setActiveTab('active')}
-            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${
+            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-all active:scale-95 ${
               activeTab === 'active' ? 'text-honey border-b-2 border-honey' : 'text-muted hover:text-white'
             }`}
           >
@@ -121,7 +132,7 @@ export default function SocialPanel({ collapsed, onToggle }: SocialPanelProps) {
           </button>
           <button
             onClick={() => setActiveTab('friends')}
-            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${
+            className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-all active:scale-95 ${
               activeTab === 'friends' ? 'text-honey border-b-2 border-honey' : 'text-muted hover:text-white'
             }`}
           >
@@ -130,7 +141,7 @@ export default function SocialPanel({ collapsed, onToggle }: SocialPanelProps) {
         </div>
         <button
           onClick={onToggle}
-          className="w-10 h-full flex items-center justify-center text-muted hover:text-white transition-colors shrink-0 hover:bg-white/[0.04]"
+          className="w-10 h-full flex items-center justify-center text-muted hover:text-white transition-all active:scale-90 shrink-0 hover:bg-white/[0.04]"
           title="Paneli kapat"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -162,7 +173,7 @@ export default function SocialPanel({ collapsed, onToggle }: SocialPanelProps) {
               <button
                 key={user.id}
                 onClick={() => setProfilePopupUser(user.id)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.04] transition-colors text-left group"
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.04] transition-all active:scale-[0.98] text-left group"
               >
                 <div className="relative shrink-0">
                   <div className="w-9 h-9 rounded-full bg-surface2 border border-white/[0.06] flex items-center justify-center text-sm font-semibold text-white overflow-hidden group-hover:ring-2 group-hover:ring-honey/30 transition-all">

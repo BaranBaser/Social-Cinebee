@@ -118,6 +118,15 @@ export default function CalendarPage() {
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') prevMonth();
+      if (e.key === 'ArrowRight') nextMonth();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [year, month]);
+
   // Sidebar events
   const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
   const sidebarEvents = events
