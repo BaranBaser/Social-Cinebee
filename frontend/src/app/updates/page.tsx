@@ -3,6 +3,18 @@
 export default function UpdatesPage() {
   const updates = [
     {
+      version: 'v1.0.3',
+      date: 'Temmuz 2026',
+      title: 'Hata Düzeltmeleri ve Altyapı İyileştirmeleri',
+      changes: [
+        'Arama sonuçlarında Tümü (All) kategorisinde arama yapıldığında menüde Ana Sayfa butonunun takılı kalması düzeltildi.',
+        'Sohbet Sistemi Hatası: "Genel Sohbet" odasının çalışmaması veya odaya girilememesi sorunu çözüldü.',
+        'Giriş Ekranı Hatası: Kullanıcı giriş yaptıktan sonra veya kayıt olduktan sonra e-posta ve şifre yazma alanlarının ekranda donup kalması düzeltildi.',
+        'Sonsuz Kaydırma (Infinite Scroll) Hatası: Ana sayfada ve Keşfet kısmında sayfa aşağı kaydırıldıkça yeni dizilerin yüklenmemesi sorunu çözüldü.',
+        'Arayüz Örtüşme: Mobil görünümlerde Sol çubuk ve Arama çubuğunun örtüşmesi ve daralma problemleri giderildi.'
+      ]
+    },
+    {
       version: 'v1.0.1',
       date: 'Temmuz 2026',
       title: 'Mobil Deneyim ve İyileştirmeler',
