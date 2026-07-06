@@ -16,8 +16,8 @@ const nextConfig = {
     
     if (isDev) {
       return [
-        { source: '/api/:path*', destination: 'http://localhost:5555/api/:path*' },
-        { source: '/socket.io/:path*', destination: 'http://localhost:5555/socket.io/:path*' },
+        { source: '/api/:path*', destination: 'http://localhost:5000/api/:path*' },
+        { source: '/socket.io/:path*', destination: 'http://localhost:5000/socket.io/:path*' },
       ];
     }
 
