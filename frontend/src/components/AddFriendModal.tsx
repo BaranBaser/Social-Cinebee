@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
-import { displayAvatar } from '@/app/settings/page';
 
 interface SearchResult {
   id: string;
@@ -109,7 +108,13 @@ export default function AddFriendModal({ isOpen, onClose }: AddFriendModalProps)
             <div className="space-y-2">
               {results.map(u => (
                 <div key={u.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-                  <img src={displayAvatar(u.avatar_url)} alt="" className="w-10 h-10 rounded-full object-cover bg-surface2 shrink-0" />
+                  <div className="w-10 h-10 rounded-full bg-honey/20 border border-honey/30 flex items-center justify-center text-sm font-bold text-honey shrink-0 overflow-hidden">
+                    {u.avatar_url ? (
+                      <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      u.username[0].toUpperCase()
+                    )}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-white truncate">{u.username}</p>
                     <p className="text-[11px] text-muted truncate">{u.bio || 'Merhaba!'}</p>
