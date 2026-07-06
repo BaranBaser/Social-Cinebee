@@ -96,7 +96,7 @@ export default function Sidebar() {
         <div className="flex flex-row md:flex-col space-x-2 md:space-x-0 space-y-0 md:space-y-0.5 w-full md:w-auto justify-around md:justify-start">
           {navItems.map((item) => {
             const isActive = item.href === '/'
-              ? pathname === '/' && !typeFromUrl
+              ? pathname === '/' && !typeFromUrl && !searchParams.get('q')
               : 'typeParam' in item
                 ? pathname === '/' && typeFromUrl === item.typeParam
                 : pathname === item.href || pathname.startsWith(item.href + '?') || pathname.startsWith(item.href + '/');

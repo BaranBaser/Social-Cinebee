@@ -118,11 +118,11 @@ export default function TopBar({ onOpenChat, socialCollapsed, setSocialCollapsed
 
   return (
     <header className="sticky top-0 z-20 bg-ink/80 backdrop-blur-xl border-b border-white/[0.06]">
-      <div className="h-14 flex items-center px-6 gap-4">
-        <div className="flex-1" />
+      <div className="h-14 flex items-center px-4 md:px-6 gap-2 md:gap-4">
+        <div className="hidden md:block flex-1" />
 
-        <form onSubmit={handleSearch} className="w-80 shrink-0">
-          <div className="flex items-center gap-2 bg-white/[0.06] rounded-full px-4 py-2 border border-white/[0.06] hover:border-white/[0.1] transition-colors focus-within:border-honey/40">
+        <form onSubmit={handleSearch} className="flex-1 md:flex-none w-full md:w-80">
+          <div className="flex items-center gap-2 bg-white/[0.06] rounded-full px-3 md:px-4 py-2 border border-white/[0.06] hover:border-white/[0.1] transition-colors focus-within:border-honey/40">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
             </svg>

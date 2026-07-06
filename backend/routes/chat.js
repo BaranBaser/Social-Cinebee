@@ -7,6 +7,10 @@ const router = express.Router();
 // GET /api/chat/rooms
 router.get('/rooms', requireAuth, async (req, res) => {
   try {
+    let generalRoom = await ChatRoom.findOne({ name: 'Genel Sohbet' });
+    if (!generalRoom) {
+      generalRoom = await ChatRoom.create({ name: 'Genel Sohbet', content_key: 'general' });
+    }
     const rooms = await ChatRoom.find().sort({ _id: 1 });
     res.json({ rooms });
   } catch (err) {

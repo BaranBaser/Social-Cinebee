@@ -106,8 +106,25 @@ function HomeInner() {
   const [loadingFiltered, setLoadingFiltered] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const hasActiveFilter = selectedGenre || selectedFilter || selectedSort !== 'rating';
+
+  useEffect(() => {
+    if (!loadMoreRef.current) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !loadingFiltered && filteredItems.length < filteredTotal) {
+        setFilteredPage((prev) => {
+          const next = prev + 1;
+          loadFiltered(next);
+          return next;
+        });
+      }
+    }, { threshold: 0.1 });
+
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [loadingFiltered, filteredItems.length, filteredTotal, loadFiltered]);
 
   useEffect(() => {
     setType(typeParam || 'movie');
@@ -372,14 +389,8 @@ function HomeInner() {
                     ))}
                   </div>
                   {filteredItems.length < filteredTotal && (
-                    <div className="flex justify-center mt-6">
-                      <button
-                        onClick={() => { const next = filteredPage + 1; setFilteredPage(next); loadFiltered(next); }}
-                        disabled={loadingFiltered}
-                        className="px-6 py-2 bg-surface border border-white/[0.06] text-sm font-medium text-white rounded-xl hover:bg-white/[0.06] transition-colors disabled:opacity-50"
-                      >
-                        {loadingFiltered ? 'Yükleniyor...' : 'Daha Fazla'}
-                      </button>
+                    <div ref={loadMoreRef} className="flex justify-center mt-6 py-4">
+                      {loadingFiltered && <span className="text-sm text-muted">Yükleniyor...</span>}
                     </div>
                   )}
                 </>
