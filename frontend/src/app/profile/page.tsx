@@ -116,9 +116,8 @@ function ProfileContent() {
     e.preventDefault();
     const urlToSave = avatarUrl || '';
     const { data } = await api.put('/auth/me', { bio, avatar_url: urlToSave });
-    const bustUrl = urlToSave ? `${urlToSave.split('?')[0]}?t=${Date.now()}` : '';
-    updateUser({ ...data.user, avatar_url: bustUrl });
-    setAvatarUrl(bustUrl);
+    updateUser({ ...data.user, avatar_url: urlToSave });
+    setAvatarUrl(urlToSave);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

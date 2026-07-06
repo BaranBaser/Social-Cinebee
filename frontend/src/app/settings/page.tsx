@@ -30,8 +30,7 @@ function SettingsContent() {
     setSavingProfile(true);
     try {
       const { data } = await api.put('/auth/me', { bio, avatar_url: avatarUrl });
-      const bustUrl = avatarUrl ? `${avatarUrl.split('?')[0]}?t=${Date.now()}` : '';
-      updateUser({ ...data.user, avatar_url: bustUrl });
+      updateUser({ ...data.user, avatar_url: avatarUrl });
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2000);
     } catch {} finally { setSavingProfile(false); }
@@ -75,7 +74,7 @@ function SettingsContent() {
             <div className="px-5 pt-6 pb-5 text-center">
               <div className="w-20 h-20 rounded-full mx-auto mb-3 overflow-hidden flex items-center justify-center ring-4 ring-honey/20 bg-ink">
                 {displayAvatar ? (
-                  <img src={displayAvatar.split('?')[0]} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                  <img src={displayAvatar} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                 ) : (
                   <span className="text-2xl font-bold text-honey">{user.username[0].toUpperCase()}</span>
                 )}
@@ -132,7 +131,7 @@ function SettingsContent() {
                   <div className="flex gap-4 items-start">
                     <div className="w-20 h-20 rounded-full bg-ink border-2 border-white/[0.08] overflow-hidden flex items-center justify-center shrink-0">
                       {displayAvatar ? (
-                        <img src={displayAvatar.split('?')[0]} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                        <img src={displayAvatar} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                       ) : (
                         <span className="text-2xl font-bold text-honey">{user.username[0].toUpperCase()}</span>
                       )}
