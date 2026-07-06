@@ -3,6 +3,16 @@
 export default function UpdatesPage() {
   const updates = [
     {
+      version: 'v1.0.5',
+      date: 'Temmuz 2026',
+      title: 'Canlı Arama (Live Search) ve Arayüz Geliştirmeleri',
+      changes: [
+        'Arama kutusunda yazarken Enter tuşuna basmadan anında sonuçları getiren Canlı Arama (Live Search) özelliği eklendi.',
+        'Arama sonuçları artık yeni süzülen panel üzerinde Filmler, Diziler ve Animeler olarak sınıflandırılarak (cluster) gösteriliyor.',
+        'Arama çubuğu, soldaki sekmelerin (Topluluk, Profil vb.) hepsinde sorunsuz çalışacak şekilde TopBar içerisine optimize edildi.'
+      ]
+    },
+    {
       version: 'v1.0.4',
       date: 'Temmuz 2026',
       title: 'Sosyal Bildirimler ve Arkadaşlık Sistemi',
