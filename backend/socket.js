@@ -23,7 +23,12 @@ function attachSocket(io) {
     const uid = socket.user.id;
     if (!onlineUsers.has(uid)) onlineUsers.set(uid, new Set());
     onlineUsers.get(uid).add(socket.id);
+    User.findByIdAndUpdate(uid, { last_active: new Date() }).exec();
     io.emit('presence:update', { onlineUserIds: [...onlineUsers.keys()] });
+
+    socket.on('heartbeat', () => {
+      User.findByIdAndUpdate(uid, { last_active: new Date() }).exec();
+    });
 
     socket.on('room:join', (roomId) => {
       socket.join(`room:${roomId}`);
@@ -110,4 +115,4 @@ function attachSocket(io) {
   });
 }
 
-module.exports = { attachSocket };
+module.exports = { attachSocket, onlineUsers };

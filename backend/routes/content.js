@@ -93,8 +93,12 @@ router.get('/trending', async (req, res) => {
   const offset = (page - 1) * limit;
 
   try {
-    let total = await ContentCache.countDocuments({ type, category: filter });
-    let rows = await ContentCache.find({ type, category: filter })
+    let query = { type, category: filter };
+    if (type === 'tv') {
+      query.genres = { $not: /Animation/ };
+    }
+    let total = await ContentCache.countDocuments(query);
+    let rows = await ContentCache.find(query)
       .skip(offset)
       .limit(limit)
       .sort({ _id: 1 });

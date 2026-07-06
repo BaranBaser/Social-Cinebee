@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, Suspense, useRef } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import ContentCard from '@/components/ContentCard';
 
@@ -80,7 +80,6 @@ function ParticlesBg() {
 
 function HomeInner() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const typeParam = searchParams.get('type') || '';
   const genreParam = searchParams.get('genre') || '';
   const filterParam = searchParams.get('filter') || '';
@@ -249,26 +248,10 @@ function HomeInner() {
             </div>
           )}
 
-          {/* Type Tabs + Filter Controls */}
+          {/* Filter Controls */}
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              {TYPES.map((t) => (
-                <button
-                  key={t.key}
-                  onClick={() => { resetFilters(); router.replace(`/?type=${t.key}`); }}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    type === t.key
-                      ? 'bg-honey text-ink shadow-lg shadow-honey/20'
-                      : 'bg-white/[0.04] text-muted hover:text-white hover:bg-white/[0.08] border border-white/[0.06]'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-
             {/* Filter trigger */}
-            <div className="relative ml-2" ref={filterDropdownRef}>
+            <div className="relative" ref={filterDropdownRef}>
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all border ${

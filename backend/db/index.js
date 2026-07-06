@@ -22,7 +22,8 @@ const userSchema = new mongoose.Schema({
     status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
     created_at: { type: Date, default: Date.now }
   }],
-  created_at: { type: Date, default: Date.now }
+  created_at: { type: Date, default: Date.now },
+  last_active: { type: Date, default: Date.now }
 });
 
 const ratingSchema = new mongoose.Schema({

@@ -18,6 +18,9 @@ export function connectSocket(token: string): Socket {
   socket.on('connect_error', (err) => {
     console.error('[Socket] connect_error:', err.message);
   });
+  setInterval(() => {
+    if (socket && socket.connected) socket.emit('heartbeat');
+  }, 30000);
   return socket;
 }
 

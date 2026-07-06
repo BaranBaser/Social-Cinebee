@@ -183,35 +183,23 @@ router.get('/trending', optionalAuth, async (req, res) => {
   }
 });
 
-// GET /api/social/active-users — son zamanlarda aktif kullanıcılar
+// GET /api/social/active-users — gercek zamanli aktif kullanicilar (socket baglantisi olanlar)
 router.get('/active-users', optionalAuth, async (req, res) => {
-  const limit = parseInt(req.query.limit) || 20;
+  const limit = parseInt(req.query.limit) || 50;
   try {
-    const activeUsersAgg = await Post.aggregate([
-      { $group: {
-          _id: '$user_id',
-          last_active: { $max: '$created_at' }
-      }},
-      { $sort: { last_active: -1 } },
-      { $limit: limit }
-    ]);
+    const { onlineUsers } = require('../socket');
+    const onlineIds = [...onlineUsers.keys()];
 
-    const users = [];
-    for (const u of activeUsersAgg) {
-      const userDoc = await User.findById(u._id).select('username avatar_url');
-      if (userDoc) {
-        users.push({
-          id: userDoc._id,
-          username: userDoc.username,
-          avatar_url: userDoc.avatar_url,
-          last_active: u.last_active
-        });
-      }
-    }
+    if (onlineIds.length === 0) return res.json({ users: [] });
 
-    res.json({ users });
+    const users = await User.find({ _id: { $in: onlineIds } })
+      .select('username avatar_url last_active')
+      .limit(limit)
+      .lean();
+
+    res.json({ users: users.map(u => ({ id: u._id, username: u.username, avatar_url: u.avatar_url, last_active: u.last_active })) });
   } catch (err) {
-    res.status(500).json({ error: 'Aktif kullanıcılar alınamadı.' });
+    res.status(500).json({ error: 'Aktif kullanicilar alinamadi.' });
   }
 });
 
