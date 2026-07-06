@@ -59,9 +59,15 @@ export default function TopBar({ onOpenChat, socialCollapsed, setSocialCollapsed
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
+  const [liveResults, setLiveResults] = useState<any[]>([]);
+  const [showLiveSearch, setShowLiveSearch] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      setShowLiveSearch(false);
       router.push(`/?q=${encodeURIComponent(searchQuery.trim())}&type=all`);
     }
   };
@@ -76,10 +82,38 @@ export default function TopBar({ onOpenChat, socialCollapsed, setSocialCollapsed
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setShowNotifs(false);
       }
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowLiveSearch(false);
+      }
     }
-    if (showNotifs) document.addEventListener('mousedown', handleClickOutside);
+    if (showNotifs || showLiveSearch) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showNotifs]);
+  }, [showNotifs, showLiveSearch]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchQuery.trim()) {
+        performLiveSearch(searchQuery.trim());
+      } else {
+        setLiveResults([]);
+        setShowLiveSearch(false);
+      }
+    }, 300);
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  async function performLiveSearch(q: string) {
+    setIsSearching(true);
+    try {
+      const { data } = await api.get('/content/search', { params: { q, type: 'all' } });
+      setLiveResults(data.results || []);
+      setShowLiveSearch(true);
+    } catch {
+      setLiveResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }
 
   async function loadNotifs() {
     setLoadingNotifs(true);
@@ -121,19 +155,101 @@ export default function TopBar({ onOpenChat, socialCollapsed, setSocialCollapsed
       <div className="h-14 flex items-center px-4 md:px-6 gap-2 md:gap-4">
         <div className="hidden md:block flex-1" />
 
-        <form onSubmit={handleSearch} className="flex-1 md:flex-none w-full md:w-80">
-          <div className="flex items-center gap-2 bg-white/[0.06] rounded-full px-3 md:px-4 py-2 border border-white/[0.06] hover:border-white/[0.1] transition-colors focus-within:border-honey/40">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-            </svg>
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Film, dizi, anime ara..."
-              className="bg-transparent text-sm outline-none flex-1 text-white placeholder:text-muted"
-            />
-          </div>
-        </form>
+        <div ref={searchRef} className="flex-1 md:flex-none w-full md:w-80 relative">
+          <form onSubmit={handleSearch}>
+            <div className="flex items-center gap-2 bg-white/[0.06] rounded-full px-3 md:px-4 py-2 border border-white/[0.06] hover:border-white/[0.1] transition-colors focus-within:border-honey/40">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+              </svg>
+              <input
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (!showLiveSearch && e.target.value.trim()) setShowLiveSearch(true);
+                }}
+                onFocus={() => {
+                  if (searchQuery.trim()) setShowLiveSearch(true);
+                }}
+                placeholder="Film, dizi, anime ara..."
+                className="bg-transparent text-sm outline-none flex-1 text-white placeholder:text-muted"
+              />
+              {isSearching && (
+                <div className="w-4 h-4 rounded-full border-2 border-honey border-t-transparent animate-spin shrink-0" />
+              )}
+            </div>
+          </form>
+
+          {showLiveSearch && searchQuery.trim() && (
+            <div className="absolute top-full mt-2 w-full bg-surface border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/40 z-50 overflow-hidden max-h-[70vh] flex flex-col">
+              {isSearching && liveResults.length === 0 ? (
+                <div className="p-4 space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex gap-3">
+                      <div className="w-12 h-16 rounded bg-surface2 animate-shimmer shrink-0" />
+                      <div className="flex-1 space-y-2 mt-1">
+                        <div className="h-3 w-3/4 rounded bg-surface2 animate-shimmer" />
+                        <div className="h-2 w-1/2 rounded bg-surface2 animate-shimmer" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : liveResults.length > 0 ? (
+                <div className="overflow-y-auto p-2">
+                  {['movie', 'series', 'anime'].map(type => {
+                    const filtered = liveResults.filter(r => r.type === type);
+                    if (filtered.length === 0) return null;
+                    return (
+                      <div key={type} className="mb-4 last:mb-0">
+                        <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-2 mb-2">
+                          {type === 'movie' ? 'Filmler' : type === 'series' ? 'Diziler' : 'Animeler'}
+                        </h4>
+                        <div className="flex flex-col gap-1">
+                          {filtered.slice(0, 4).map(r => (
+                            <Link
+                              key={r.id || r.tmdb_id || r.mal_id}
+                              href={`/title/${r.id || r.tmdb_id || r.mal_id}`}
+                              onClick={() => setShowLiveSearch(false)}
+                              className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/[0.04] transition-colors"
+                            >
+                              <div className="w-10 h-14 bg-surface2 rounded overflow-hidden shrink-0">
+                                {r.poster_path || r.image_url ? (
+                                  <img src={r.poster_path ? `https://image.tmdb.org/t/p/w92${r.poster_path}` : r.image_url} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">Yok</div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-white truncate">{r.title}</p>
+                                <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500">
+                                  {r.year && <span>{r.year}</span>}
+                                  {r.rating > 0 && (
+                                    <span className="flex items-center gap-0.5 text-honey">
+                                      ★ {r.rating.toFixed(1)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <button 
+                    onClick={handleSearch}
+                    className="w-full py-2.5 mt-1 text-xs font-semibold text-honey hover:bg-honey/10 rounded-xl transition-colors"
+                  >
+                    Tüm sonuçları gör ({liveResults.length})
+                  </button>
+                </div>
+              ) : (
+                <div className="p-8 text-center">
+                  <p className="text-sm text-gray-400">Sonuç bulunamadı</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="flex-1" />
 
