@@ -39,7 +39,7 @@ export default function ProfilePopup({ userId, onClose }: Props) {
       const { data } = await api.get(`/auth/users/${userId}`);
       setProfile(data.user);
 
-      if (me && me.id !== userId) {
+      if (me && String(me.id) !== String(userId)) {
         const { data: fData } = await api.get('/social/friends');
         const isFriend = (fData.friends || []).some((f: { id: string }) => f.id === userId);
         if (isFriend) {
@@ -109,7 +109,7 @@ export default function ProfilePopup({ userId, onClose }: Props) {
                   {profile.avatar_url ? (
                     <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-2xl font-bold text-honey">{profile.username[0].toUpperCase()}</span>
+                    <span className="text-2xl font-bold text-honey">{profile.username?.[0]?.toUpperCase() || '?'}</span>
                   )}
                 </div>
                 <h3 className="text-lg font-bold text-white">{profile.username}</h3>
@@ -117,7 +117,7 @@ export default function ProfilePopup({ userId, onClose }: Props) {
               </div>
               <p className="text-xs text-gray-600 mt-2">{profile.friend_count} arkadaş</p>
 
-              {me && me.id !== profile.id && (
+              {me && String(me.id) !== String(profile.id) && (
                 <div className="mt-4">
                   {friendStatus === 'friends' ? (
                     <button onClick={removeFriend} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/[0.06] border border-white/[0.08] text-sm text-red-400 hover:bg-red-400/10 transition-colors">

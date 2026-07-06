@@ -220,14 +220,14 @@ export default function CommunityPage() {
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
-                      <button onClick={() => setProfilePopupUser(post.user_id || post.id)} className="w-8 h-8 rounded-full bg-surface2 border border-white/[0.06] flex items-center justify-center text-xs font-semibold text-white overflow-hidden shrink-0 hover:ring-2 hover:ring-honey/50 transition-all">
+                      <button onClick={() => setProfilePopupUser(post.user_id ? String(post.user_id) : String(post.id))} className="w-8 h-8 rounded-full bg-surface2 border border-white/[0.06] flex items-center justify-center text-xs font-semibold text-white overflow-hidden shrink-0 hover:ring-2 hover:ring-honey/50 transition-all">
                         {post.avatar_url ? (
                           <img src={post.avatar_url} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          post.username[0].toUpperCase()
+                          post.username?.[0]?.toUpperCase() || '?'
                         )}
                       </button>
-                      <button onClick={() => setProfilePopupUser(post.user_id || post.id)} className="text-sm font-semibold text-white hover:text-honey transition-colors">{post.username}</button>
+                      <button onClick={() => setProfilePopupUser(post.user_id ? String(post.user_id) : String(post.id))} className="text-sm font-semibold text-white hover:text-honey transition-colors">{post.username}</button>
                       <span className="text-[11px] text-muted">{timeAgo(post.created_at)}</span>
                     </div>
 
@@ -258,7 +258,7 @@ export default function CommunityPage() {
                         </svg>
                         {post.comment_count || 0} yorum
                       </button>
-                      {user && (user.id === post.user_id || user.role === 'admin') && (
+                      {user && (String(user.id) === String(post.user_id) || user.role === 'admin') && (
                         <button onClick={() => handleDelete(post.id)} className="text-xs text-muted hover:text-red-400 transition-colors ml-auto">Sil</button>
                       )}
                     </div>
@@ -271,12 +271,12 @@ export default function CommunityPage() {
                 <div className="border-t border-white/[0.06] p-4 bg-ink/50">
                   {(comments[post.id] || []).map((c) => (
                     <div key={c.id} className="flex gap-2 mb-3 last:mb-0">
-                      <button onClick={() => setProfilePopupUser(c.user?.id)} className="w-6 h-6 rounded-full bg-honey flex items-center justify-center text-[10px] font-bold text-ink shrink-0 overflow-hidden hover:ring-2 hover:ring-honey/50 transition-all">
-                        {c.user?.avatar_url ? <img src={c.user.avatar_url} alt="" className="w-full h-full object-cover" /> : c.user?.username[0].toUpperCase()}
+                      <button onClick={() => setProfilePopupUser(c.user?.id ? String(c.user.id) : null)} className="w-6 h-6 rounded-full bg-honey flex items-center justify-center text-[10px] font-bold text-ink shrink-0 overflow-hidden hover:ring-2 hover:ring-honey/50 transition-all">
+                        {c.user?.avatar_url ? <img src={c.user.avatar_url} alt="" className="w-full h-full object-cover" /> : c.user?.username?.[0]?.toUpperCase() || '?'}
                       </button>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <button onClick={() => setProfilePopupUser(c.user?.id)} className="text-xs font-semibold text-white hover:text-honey transition-colors">{c.user?.username}</button>
+                          <button onClick={() => setProfilePopupUser(c.user?.id ? String(c.user.id) : null)} className="text-xs font-semibold text-white hover:text-honey transition-colors">{c.user?.username}</button>
                           <span className="text-[10px] text-gray-600">{timeAgo(c.created_at)}</span>
                         </div>
                         <p className="text-xs text-gray-300 mt-0.5">{c.body}</p>

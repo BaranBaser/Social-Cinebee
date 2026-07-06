@@ -40,7 +40,7 @@ function MessagesContent() {
     const socket = getSocket();
     if (!socket || !activeUser) return;
     const onDm = (msg: Message) => {
-      if (msg.sender_id === activeUser.id || msg.sender_id === user?.id) {
+      if (String(msg.sender_id) === String(activeUser.id) || String(msg.sender_id) === String(user?.id)) {
         setMessages(prev => [...prev, msg]);
       }
       loadConversations();
@@ -83,7 +83,7 @@ function MessagesContent() {
     if (!token) return;
     const socket = ensureSocket(token);
     socket.emit('dm:send', { toUserId: activeUser.id, body: text });
-    setMessages(prev => [...prev, { id: Date.now().toString(), body: text, created_at: new Date().toISOString(), sender_id: user.id }]);
+    setMessages(prev => [...prev, { id: Date.now().toString(), body: text, created_at: new Date().toISOString(), sender_id: String(user.id) }]);
     setDraft('');
   }
 
@@ -207,8 +207,8 @@ function MessagesContent() {
                   </div>
                 )}
                 {messages.map((m, i) => {
-                  const isMine = m.sender_id === user?.id;
-                  const showTail = i === 0 || messages[i - 1]?.sender_id !== m.sender_id;
+                  const isMine = String(m.sender_id) === String(user?.id);
+                  const showTail = i === 0 || String(messages[i - 1]?.sender_id) !== String(m.sender_id);
                   return (
                     <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'} ${showTail ? 'mt-3' : 'mt-0.5'}`}>
                       <div className={`max-w-[70%] px-3.5 py-2 text-sm leading-relaxed ${

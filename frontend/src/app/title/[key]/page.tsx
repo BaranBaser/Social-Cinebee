@@ -320,17 +320,17 @@ export default function ContentDetail() {
               <div key={c.id} className="bg-surface border border-white/[0.06] rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setProfilePopupUser(c.user.id)} className="w-7 h-7 rounded-full bg-honey flex items-center justify-center text-[11px] font-bold text-ink shrink-0 overflow-hidden hover:ring-2 hover:ring-honey/50 transition-all">
+                    <button onClick={() => setProfilePopupUser(String(c.user.id))} className="w-7 h-7 rounded-full bg-honey flex items-center justify-center text-[11px] font-bold text-ink shrink-0 overflow-hidden hover:ring-2 hover:ring-honey/50 transition-all">
                       {c.user.avatar_url ? (
                         <img src={c.user.avatar_url} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        c.user.username[0].toUpperCase()
+                        c.user.username?.[0]?.toUpperCase() || '?'
                       )}
                     </button>
-                    <button onClick={() => setProfilePopupUser(c.user.id)} className="text-sm font-medium text-white hover:text-honey transition-colors">{c.user.username}</button>
+                    <button onClick={() => setProfilePopupUser(String(c.user.id))} className="text-sm font-medium text-white hover:text-honey transition-colors">{c.user.username}</button>
                     <span className="text-[11px] text-gray-500">{new Date(c.created_at).toLocaleDateString('tr-TR')}</span>
                   </div>
-                  {user && (user.id === c.user.id || user.role === 'admin') && !c.is_removed && (
+                  {user && (String(user.id) === String(c.user.id) || user.role === 'admin') && !c.is_removed && (
                     <button onClick={() => deleteComment(c.id)} className="text-gray-500 hover:text-red-400 transition-colors" title="Yorumu sil">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
                     </button>

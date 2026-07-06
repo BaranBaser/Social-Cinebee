@@ -110,6 +110,22 @@ function HomeInner() {
 
   const hasActiveFilter = selectedGenre || selectedFilter || selectedSort !== 'rating';
 
+  // Load filtered content
+  const loadFiltered = useCallback(async (page = 1) => {
+    setLoadingFiltered(true);
+    try {
+      const params: Record<string, string> = { type, page: String(page), sort: selectedSort };
+      if (selectedGenre) params.genre = selectedGenre;
+      if (selectedFilter) params.filter = selectedFilter;
+      const { data } = await api.get('/content/browse', { params });
+      if (page === 1) {
+        setFilteredItems(data.results || []);
+        setFilteredTotal(data.total || 0);
+      } else {
+        setFilteredItems(prev => [...prev, ...(data.results || [])]);
+      }
+    } catch {} finally { setLoadingFiltered(false); }
+  }, [type, selectedGenre, selectedFilter, selectedSort]);
   useEffect(() => {
     if (!loadMoreRef.current) return;
     const observer = new IntersectionObserver((entries) => {
@@ -176,22 +192,6 @@ function HomeInner() {
     }
   }, [type]);
 
-  // Load filtered content
-  const loadFiltered = useCallback(async (page = 1) => {
-    setLoadingFiltered(true);
-    try {
-      const params: Record<string, string> = { type, page: String(page), sort: selectedSort };
-      if (selectedGenre) params.genre = selectedGenre;
-      if (selectedFilter) params.filter = selectedFilter;
-      const { data } = await api.get('/content/browse', { params });
-      if (page === 1) {
-        setFilteredItems(data.results || []);
-        setFilteredTotal(data.total || 0);
-      } else {
-        setFilteredItems(prev => [...prev, ...(data.results || [])]);
-      }
-    } catch {} finally { setLoadingFiltered(false); }
-  }, [type, selectedGenre, selectedFilter, selectedSort]);
 
   useEffect(() => {
     if (!query.trim()) {
