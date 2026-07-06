@@ -27,6 +27,7 @@ function normalizeCache(row) {
     key: row.content_key,
     type: row.type,
     title: row.title || row.original_title,
+    original_title: row.original_title || '',
     tagline: '',
     overview: row.overview || '',
     poster: row.poster,

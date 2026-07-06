@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, UserPlus, UserMinus, Check, Clock } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export default function ProfilePopup({ userId, onClose }: Props) {
+  const router = useRouter();
   const { user: me } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,15 +101,20 @@ export default function ProfilePopup({ userId, onClose }: Props) {
           <>
             <div className="h-20 bg-gradient-to-r from-honey/20 to-honey/5" />
             <div className="px-6 pb-6 -mt-10 text-center">
-              <div className="w-20 h-20 rounded-full bg-surface2 border-4 border-surface mx-auto mb-3 overflow-hidden flex items-center justify-center">
-                {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-2xl font-bold text-honey">{profile.username[0].toUpperCase()}</span>
-                )}
+              <div 
+                onClick={() => { onClose(); router.push(`/profile/${profile.id}`); }}
+                className="cursor-pointer"
+              >
+                <div className="w-20 h-20 rounded-full bg-surface2 border-4 border-surface mx-auto mb-3 overflow-hidden flex items-center justify-center">
+                  {profile.avatar_url ? (
+                    <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-2xl font-bold text-honey">{profile.username[0].toUpperCase()}</span>
+                  )}
+                </div>
+                <h3 className="text-lg font-bold text-white">{profile.username}</h3>
+                {profile.bio && <p className="text-sm text-muted mt-1 line-clamp-3">{profile.bio}</p>}
               </div>
-              <h3 className="text-lg font-bold text-white">{profile.username}</h3>
-              {profile.bio && <p className="text-sm text-muted mt-1 line-clamp-3">{profile.bio}</p>}
               <p className="text-xs text-gray-600 mt-2">{profile.friend_count} arkadaş</p>
 
               {me && me.id !== profile.id && (

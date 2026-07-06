@@ -151,6 +151,13 @@ const postCommentSchema = new mongoose.Schema({
 });
 postCommentSchema.index({ post_id: 1 });
 
+const profileCommentSchema = new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  author_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  body: { type: String, required: true, maxlength: 500 },
+  created_at: { type: Date, default: Date.now }
+});
+
 const postVoteSchema = new mongoose.Schema({
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   post_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', required: true },
@@ -173,6 +180,7 @@ const PostLike = mongoose.model('PostLike', postLikeSchema);
 const Notification = mongoose.model('Notification', notificationSchema);
 const PostComment = mongoose.model('PostComment', postCommentSchema);
 const PostVote = mongoose.model('PostVote', postVoteSchema);
+const ProfileComment = mongoose.model('ProfileComment', profileCommentSchema);
 
 // Ensure General Chat Room and Admin
 mongoose.connection.once('open', async () => {
@@ -211,5 +219,6 @@ module.exports = {
   PostLike,
   Notification,
   PostComment,
-  PostVote
+  PostVote,
+  ProfileComment
 };

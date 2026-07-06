@@ -129,19 +129,24 @@ function SettingsContent() {
               <div className="space-y-5 max-w-lg">
                 <div>
                   <label className="text-xs font-medium text-gray-400 block mb-2">Avatar URL</label>
-                  <div className="flex gap-3 items-start">
-                    <div className="w-14 h-14 rounded-2xl bg-ink border border-white/[0.06] overflow-hidden flex items-center justify-center shrink-0">
+                  <div className="flex gap-4 items-start">
+                    <div className="w-20 h-20 rounded-full bg-ink border-2 border-white/[0.08] overflow-hidden flex items-center justify-center shrink-0">
                       {displayAvatar ? (
                         <img src={displayAvatar.split('?')[0]} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                       ) : (
-                        <span className="text-lg font-bold text-honey">{user.username[0].toUpperCase()}</span>
+                        <span className="text-2xl font-bold text-honey">{user.username[0].toUpperCase()}</span>
                       )}
                     </div>
                     <div className="flex-1">
-                      <input type="url" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)}
-                        placeholder="https://example.com/avatar.jpg"
-                        className="w-full px-4 py-2.5 bg-ink border border-white/[0.06] rounded-xl text-sm text-white placeholder-gray-600 outline-none focus:border-honey/40 focus:ring-1 focus:ring-honey/20 transition-all" />
-                      <p className="text-[11px] text-gray-600 mt-1.5">Profil fotoğrafı URL'si</p>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                        </div>
+                        <input type="url" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)}
+                          placeholder="https://example.com/avatar.jpg"
+                          className="w-full pl-10 pr-4 py-2.5 bg-ink border border-white/[0.06] rounded-xl text-sm text-white placeholder-gray-600 outline-none focus:border-honey/40 focus:ring-1 focus:ring-honey/20 transition-all" />
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-1.5">Profil resmi için görsel linki yapıştırın (Alphacoders, Imgur vb.)</p>
                     </div>
                   </div>
                 </div>

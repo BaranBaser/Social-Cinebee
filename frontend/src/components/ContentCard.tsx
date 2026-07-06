@@ -7,6 +7,7 @@ interface ContentItem {
   key: string;
   type: string;
   title: string;
+  original_title?: string;
   poster: string | null;
   rating: number;
   year: string;
@@ -71,7 +72,12 @@ export default function ContentCard({ item, badge }: { item: ContentItem; badge?
       </div>
 
       <div className="p-2.5">
-        <p className="text-[13px] font-semibold text-white line-clamp-2 leading-snug">{item.title}</p>
+        <p className="text-[13px] font-semibold text-white line-clamp-2 leading-snug">
+          {item.title}
+          {item.original_title && item.original_title !== item.title && (
+            <span className="text-[11px] font-normal text-gray-500 ml-1">({item.original_title})</span>
+          )}
+        </p>
         {item.year && <p className="text-xs text-muted mt-1">{item.year}</p>}
       </div>
     </Link>

@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { User } = require('../db');
+const { User, Library } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -146,6 +146,14 @@ router.get('/users/:id', async (req, res) => {
   try {
     const u = await User.findById(req.params.id).select('_id username bio avatar_url role created_at friends friend_requests');
     if (!u) return res.status(404).json({ error: 'Kullanıcı bulunamadı.' });
+
+    const watchedItems = await Library.find({ user_id: u._id, status: 'watched' })
+      .sort({ created_at: -1 })
+      .limit(20)
+      .select('content_title content_poster content_type content_key created_at');
+
+    const totalWatched = await Library.countDocuments({ user_id: u._id, status: 'watched' });
+
     res.json({
       user: {
         id: u._id,
@@ -155,9 +163,20 @@ router.get('/users/:id', async (req, res) => {
         role: u.role,
         created_at: u.created_at,
         friend_count: u.friends.length,
+      },
+      watched: {
+        items: watchedItems.map(i => ({
+          title: i.content_title,
+          poster: i.content_poster,
+          type: i.content_type,
+          key: i.content_key,
+          added_at: i.created_at
+        })),
+        total: totalWatched
       }
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Profil alınamadı.' });
   }
 });

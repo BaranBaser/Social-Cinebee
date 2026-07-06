@@ -9,6 +9,7 @@ interface ContentItem {
   key: string;
   type: string;
   title: string;
+  original_title?: string;
   poster: string | null;
   backdrop?: string | null;
   rating: number;
@@ -34,6 +35,48 @@ const SORTS = [
   { key: 'rating', label: 'Puana Göre' },
   { key: 'year', label: 'Yeniye Göre' },
 ];
+
+function ParticlesBg() {
+  const particles = Array.from({ length: 35 }, (_, i) => ({
+    id: i,
+    left: Math.random() * 100,
+    delay: Math.random() * 8,
+    duration: 6 + Math.random() * 6,
+    size: 1 + Math.random() * 2,
+    opacity: 0.2 + Math.random() * 0.3,
+    drift: -20 + Math.random() * 40,
+  }));
+
+  return (
+    <>
+      <style>{`
+        @keyframes particleFloat {
+          0% { transform: translateY(0) translateX(0); opacity: var(--p-opacity); }
+          50% { transform: translateY(-50vh) translateX(var(--p-drift)); opacity: var(--p-opacity); }
+          100% { transform: translateY(-100vh) translateX(calc(var(--p-drift) * -0.5)); opacity: 0; }
+        }
+      `}</style>
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
+        {particles.map(p => (
+          <div
+            key={p.id}
+            className="absolute bottom-0 rounded-full"
+            style={{
+              left: `${p.left}%`,
+              width: p.size,
+              height: p.size,
+              backgroundColor: '#f5c518',
+              opacity: p.opacity,
+              animation: `particleFloat ${p.duration}s ${p.delay}s linear infinite`,
+              ['--p-opacity' as string]: p.opacity,
+              ['--p-drift' as string]: `${p.drift}px`,
+            }}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
 
 function HomeInner() {
   const searchParams = useSearchParams();
@@ -163,11 +206,14 @@ function HomeInner() {
   }
 
   return (
-    <div className="px-6 py-4 overflow-hidden">
+    <div className="relative px-6 py-4 overflow-hidden">
+      <ParticlesBg />
       {query.trim() ? (
-        <SearchResults query={query} type={type} setType={setType} />
+        <div className="relative z-10">
+          <SearchResults query={query} type={type} setType={setType} />
+        </div>
       ) : (
-        <div className="space-y-4">
+        <div className="relative z-10 space-y-4">
           {/* Featured */}
           {featured && !hasActiveFilter && (
             <div className="relative rounded-2xl overflow-hidden bg-surface border border-white/[0.06] h-[260px] flex items-end">
