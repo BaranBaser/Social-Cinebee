@@ -37,26 +37,24 @@ const SORTS = [
 ];
 
 function ParticlesBg() {
-  const particles = Array.from({ length: 45 }, (_, i) => ({
-    id: i,
-    left: Math.random() * 100,
-    delay: Math.random() * 8,
-    duration: 5 + Math.random() * 7,
-    size: 2 + Math.random() * 4,
-    opacity: 0.3 + Math.random() * 0.5,
-    drift: -30 + Math.random() * 60,
-  }));
+  const [particles, setParticles] = useState<{id:number;left:number;delay:number;duration:number;size:number;opacity:number;drift:number}[]>([]);
+
+  useEffect(() => {
+    setParticles(Array.from({ length: 45 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 8,
+      duration: 5 + Math.random() * 7,
+      size: 2 + Math.random() * 4,
+      opacity: 0.3 + Math.random() * 0.5,
+      drift: -30 + Math.random() * 60,
+    })));
+  }, []);
+
+  if (particles.length === 0) return null;
 
   return (
     <>
-      <style>{`
-        @keyframes particleFloat {
-          0% { transform: translateY(0) translateX(0); opacity: 0; }
-          20% { opacity: var(--p-opacity); }
-          80% { opacity: var(--p-opacity); }
-          100% { transform: translateY(-100vh) translateX(var(--p-drift)); opacity: 0; }
-        }
-      `}</style>
       <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
         {particles.map(p => (
           <div

@@ -67,6 +67,11 @@ router.post('/read/:id', requireAuth, async (req, res) => {
 async function createNotification({ user_id, from_user_id, type, title, body, link }) {
   try {
     if (String(user_id) === String(from_user_id)) return;
+    const recent = await Notification.findOne({
+      user_id, from_user_id, type,
+      created_at: { $gte: new Date(Date.now() - 5000) }
+    });
+    if (recent) return;
     await Notification.create({ user_id, from_user_id, type, title, body, link });
   } catch {}
 }

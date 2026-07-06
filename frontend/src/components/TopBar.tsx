@@ -139,6 +139,24 @@ export default function TopBar({ onOpenChat, socialCollapsed, setSocialCollapsed
     } catch {}
   }
 
+  async function handleAcceptFriend(n: Notification) {
+    if (!n.from_user) return;
+    try {
+      await api.post(`/social/friends/accept-from/${n.from_user.id}`);
+      setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true } : x));
+      refresh();
+    } catch {}
+  }
+
+  async function handleRejectFriend(n: Notification) {
+    if (!n.from_user) return;
+    try {
+      await api.post(`/social/friends/reject-from/${n.from_user.id}`);
+      setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true, title: 'Arkadaşlık isteği reddedildi' } : x));
+      refresh();
+    } catch {}
+  }
+
   const typeIcon = (type: string) => {
     switch (type) {
       case 'message': return '💬';
@@ -297,23 +315,43 @@ export default function TopBar({ onOpenChat, socialCollapsed, setSocialCollapsed
                       </div>
                     ) : (
                       notifications.map(n => (
-                        <button
+                        <div
                           key={n.id}
-                          onClick={() => { markRead(n.id); setShowNotifs(false); if (n.link) router.push(n.link); }}
-                          className={`w-full text-left flex items-start gap-2.5 px-4 py-3 transition-colors border-b border-white/[0.04] last:border-0 ${
+                          className={`flex flex-col transition-colors border-b border-white/[0.04] last:border-0 ${
                             n.is_read ? 'hover:bg-white/[0.02]' : 'bg-honey/[0.03] hover:bg-honey/[0.06]'
                           }`}
                         >
-                          <span className="text-base mt-0.5">{typeIcon(n.type)}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className={`text-xs font-semibold ${n.is_read ? 'text-gray-400' : 'text-white'}`}>{n.title}</p>
-                              {!n.is_read && <span className="w-1.5 h-1.5 rounded-full bg-honey shrink-0" />}
+                          <button
+                            onClick={() => { markRead(n.id); setShowNotifs(false); if (n.link && n.type !== 'friend_request') router.push(n.link); }}
+                            className="w-full text-left flex items-start gap-2.5 px-4 py-3"
+                          >
+                            <span className="text-base mt-0.5">{typeIcon(n.type)}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <p className={`text-xs font-semibold ${n.is_read ? 'text-gray-400' : 'text-white'}`}>{n.title}</p>
+                                {!n.is_read && <span className="w-1.5 h-1.5 rounded-full bg-honey shrink-0" />}
+                              </div>
+                              <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2 leading-relaxed">{n.body}</p>
+                              <p className="text-[10px] text-gray-700 mt-1">{timeAgo(n.created_at)} önce</p>
                             </div>
-                            <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2 leading-relaxed">{n.body}</p>
-                            <p className="text-[10px] text-gray-700 mt-1">{timeAgo(n.created_at)} önce</p>
-                          </div>
-                        </button>
+                          </button>
+                          {n.type === 'friend_request' && !n.is_read && n.from_user && (
+                            <div className="flex gap-2 px-4 pb-3 pt-0">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleAcceptFriend(n); }}
+                                className="flex-1 py-1.5 text-xs font-bold rounded-lg bg-honey text-ink hover:bg-honey-light transition-colors"
+                              >
+                                Kabul Et
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleRejectFriend(n); }}
+                                className="flex-1 py-1.5 text-xs font-bold rounded-lg bg-white/[0.06] text-red-400 hover:bg-red-400/10 transition-colors"
+                              >
+                                Reddet
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       ))
                     )}
                   </div>

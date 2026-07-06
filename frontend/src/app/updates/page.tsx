@@ -3,6 +3,17 @@
 export default function UpdatesPage() {
   const updates = [
     {
+      version: 'v1.0.4',
+      date: 'Temmuz 2026',
+      title: 'Sosyal Bildirimler ve Arkadaşlık Sistemi',
+      changes: [
+        'Arkadaşlık isteği kabul/reddetme bildirimlerinde duplicate (çift) gönderim sorunu düzeltildi.',
+        'Bildirimler panelinden arkadaşlık isteklerini Kabul Et / Reddet ile doğrudan yanıtlayabilme eklendi.',
+        'Arkadaş ekleme penceresi artık backdrop tıklaması ve Escape tuşu ile kapatılabilir.',
+        'SSR hydration hataları giderildi: honeyDrip ve particleFloat animasyonları global CSS\'e taşındı.',
+      ]
+    },
+    {
       version: 'v1.0.3',
       date: 'Temmuz 2026',
       title: 'Hata Düzeltmeleri ve Altyapı İyileştirmeleri',

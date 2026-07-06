@@ -363,6 +363,58 @@ router.post('/friends/reject/:requestId', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/social/friends/accept-from/:fromUserId — bildirimden isteği kabul et
+router.post('/friends/accept-from/:fromUserId', requireAuth, async (req, res) => {
+  try {
+    const me = await User.findById(req.user._id);
+    const reqDoc = (me.friend_requests || []).find(
+      r => r.from.toString() === req.params.fromUserId && r.to.toString() === req.user._id.toString() && r.status === 'pending'
+    );
+    if (!reqDoc) return res.status(404).json({ error: 'Bekleyen istek bulunamadı.' });
+    reqDoc.status = 'accepted';
+    me.friends.push(reqDoc.from);
+    await me.save();
+
+    const sender = await User.findById(reqDoc.from);
+    if (sender) {
+      sender.friends.push(req.user._id);
+      const senderReq = sender.friend_requests.find(
+        r => r.from.toString() === req.user._id.toString() && r.status === 'pending'
+      );
+      if (senderReq) senderReq.status = 'accepted';
+      await sender.save();
+
+      createNotification({
+        user_id: reqDoc.from,
+        from_user_id: req.user._id,
+        type: 'friend_accept',
+        title: 'Arkadaşlık isteği kabul edildi',
+        body: `${req.user.username} arkadaşlık isteğini kabul etti`,
+        link: '/community',
+      });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'İstek kabul edilemedi.' });
+  }
+});
+
+// POST /api/social/friends/reject-from/:fromUserId — bildirimden isteği reddet
+router.post('/friends/reject-from/:fromUserId', requireAuth, async (req, res) => {
+  try {
+    const me = await User.findById(req.user._id);
+    const reqDoc = (me.friend_requests || []).find(
+      r => r.from.toString() === req.params.fromUserId && r.to.toString() === req.user._id.toString() && r.status === 'pending'
+    );
+    if (!reqDoc) return res.status(404).json({ error: 'Bekleyen istek bulunamadı.' });
+    reqDoc.status = 'rejected';
+    await me.save();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'İstek reddedilemedi.' });
+  }
+});
+
 // DELETE /api/social/friends/:userId — arkadaşı kaldır
 router.delete('/friends/:userId', requireAuth, async (req, res) => {
   try {

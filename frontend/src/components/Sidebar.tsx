@@ -76,13 +76,6 @@ export default function Sidebar() {
             <span className="text-lg">🐝</span>
           </Link>
           <div className="absolute top-[100%] left-1 right-8 h-4 pointer-events-none overflow-hidden">
-             <style>{`
-               @keyframes honeyDrip {
-                 0% { d: path('M0,0 Q10,0 20,5 T40,5 T60,2 T80,10 T100,0 Z'); }
-                 50% { d: path('M0,0 Q10,15 20,5 T40,12 T60,5 T80,18 T100,0 Z'); }
-                 100% { d: path('M0,0 Q10,0 20,5 T40,5 T60,2 T80,10 T100,0 Z'); }
-               }
-             `}</style>
              <svg viewBox="0 0 100 20" preserveAspectRatio="none" className="w-full h-full text-honey fill-current" style={{ filter: 'drop-shadow(0 2px 3px rgba(245, 197, 24, 0.4))' }}>
                <path d="M0,0 Q10,0 20,5 T40,5 T60,2 T80,10 T100,0 Z" style={{ animation: 'honeyDrip 4s ease-in-out infinite' }} />
              </svg>

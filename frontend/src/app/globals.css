@@ -58,3 +58,16 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+@keyframes honeyDrip {
+  0% { d: path("M0,0 Q10,0 20,5 T40,5 T60,2 T80,10 T100,0 Z"); }
+  50% { d: path("M0,0 Q10,15 20,5 T40,12 T60,5 T80,18 T100,0 Z"); }
+  100% { d: path("M0,0 Q10,0 20,5 T40,5 T60,2 T80,10 T100,0 Z"); }
+}
+
+@keyframes particleFloat {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  20% { opacity: var(--p-opacity); }
+  80% { opacity: var(--p-opacity); }
+  100% { transform: translateY(-100vh) translateX(var(--p-drift)); opacity: 0; }
+}
