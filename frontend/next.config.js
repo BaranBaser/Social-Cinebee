@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://social-cinebee.onrender.com';
+
 const nextConfig = {
   reactStrictMode: true,
   eslint: { ignoreDuringBuilds: true },
@@ -8,24 +10,14 @@ const nextConfig = {
       { protocol: 'https', hostname: 'image.tmdb.org' },
       { protocol: 'https', hostname: 'cdn.myanimelist.net' },
       { protocol: 'https', hostname: 'i.imgur.com' },
+      { protocol: 'https', hostname: 'avatarfiles.alphacoders.com' },
     ],
   },
   async rewrites() {
-    const isDev = process.env.NODE_ENV !== 'production';
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://social-cinebee.onrender.com';
-    
-    if (isDev) {
-      return [
-        { source: '/api/:path*', destination: 'http://localhost:5000/api/:path*' },
-        { source: '/socket.io/:path*', destination: 'http://localhost:5000/socket.io/:path*' },
-        { source: '/uploads/:path*', destination: 'http://localhost:5000/uploads/:path*' },
-      ];
-    }
-
     return [
-      { source: '/api/:path*', destination: `${apiUrl}/api/:path*` },
-      { source: '/socket.io/:path*', destination: `${apiUrl}/socket.io/:path*` },
-      { source: '/uploads/:path*', destination: `${apiUrl}/uploads/:path*` },
+      { source: '/api/:path*', destination: `${API_URL}/api/:path*` },
+      { source: '/socket.io/:path*', destination: `${API_URL}/socket.io/:path*` },
+      { source: '/uploads/:path*', destination: `${API_URL}/uploads/:path*` },
     ];
   },
 };
