@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
 import api from '@/lib/api';
+import AddFriendModal from './AddFriendModal';
 
 interface TopBarProps {
   onOpenChat: () => void;
@@ -40,6 +41,7 @@ export default function TopBar({ onOpenChat }: TopBarProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [showAddFriend, setShowAddFriend] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -194,14 +196,16 @@ export default function TopBar({ onOpenChat }: TopBarProps) {
           {user ? (
             <>
               <button
-                onClick={() => router.push('/?new=1')}
+                onClick={() => setShowAddFriend(true)}
                 className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-muted hover:text-white"
-                title="Yeni Ekle"
+                title="Arkadaş Ekle"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" x2="12" y1="5" y2="19" /><line x1="5" x2="19" y1="12" y2="12" />
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>
                 </svg>
               </button>
+
+              <AddFriendModal isOpen={showAddFriend} onClose={() => setShowAddFriend(false)} />
 
               <button
                 onClick={onOpenChat}

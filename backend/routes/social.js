@@ -221,6 +221,38 @@ router.get('/friends', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/social/search?q=... — kullanıcı ara
+router.get('/search', requireAuth, async (req, res) => {
+  const q = req.query.q;
+  if (!q || q.length < 2) return res.json({ users: [] });
+  try {
+    const me = await User.findById(req.user._id);
+    const users = await User.find({
+      username: { $regex: q, $options: 'i' },
+      _id: { $ne: req.user._id }
+    }).select('username avatar_url bio').limit(10);
+
+    const results = users.map(u => {
+      let relationship = 'none';
+      if (me.friends && me.friends.includes(u._id)) relationship = 'friends';
+      else {
+        const outReq = (me.friend_requests || []).find(r => r.to.toString() === u._id.toString() && r.status === 'pending');
+        if (outReq) relationship = 'pending_sent';
+        else {
+          const inReq = (me.friend_requests || []).find(r => r.from.toString() === u._id.toString() && r.status === 'pending');
+          if (inReq) relationship = 'pending_received';
+        }
+      }
+      return { id: u._id, username: u.username, avatar_url: u.avatar_url, bio: u.bio || '', relationship };
+    });
+
+    res.json({ users: results });
+  } catch (err) {
+    console.error('User search error:', err);
+    res.status(500).json({ error: 'Kullanıcılar aranamadı.' });
+  }
+});
+
 // GET /api/social/friends/requests — bekleyen arkadaşlık istekleri
 router.get('/friends/requests', requireAuth, async (req, res) => {
   try {
