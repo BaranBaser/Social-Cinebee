@@ -3,6 +3,16 @@
 export default function UpdatesPage() {
   const updates = [
     {
+      version: 'v1.0.6',
+      date: 'Temmuz 2026',
+      title: 'Profil Navigasyonu ve Sistem Optimizasyonları',
+      changes: [
+        'Dinamik profil sayfaları (profile/[userId]) oluşturuldu. Artık arkadaşlarınızın profillerini direkt bağlantıyla ziyaret edebilirsiniz.',
+        'Profil sayfası arayüzü ve içerik yapısı (ProfileContent) ayrılarak daha hızlı çalışan bir sisteme dönüştürüldü.',
+        'Topluluk (Community) sayfasındaki arkadaşlık sistemi ve profil yönlendirmeleri kusursuz hale getirildi.'
+      ]
+    },
+    {
       version: 'v1.0.5',
       date: 'Temmuz 2026',
       title: 'Canlı Arama (Live Search) ve Arayüz Geliştirmeleri',
