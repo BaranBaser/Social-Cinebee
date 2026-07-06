@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import ProfilePopup from '@/components/ProfilePopup';
 
 interface UserItem {
   id: string;
@@ -40,11 +40,11 @@ interface SocialPanelProps {
 }
 
 export default function SocialPanel({ collapsed, onToggle }: SocialPanelProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'active' | 'friends'>('active');
   const [activeUsers, setActiveUsers] = useState<UserItem[]>([]);
   const [friends, setFriends] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [profilePopupUser, setProfilePopupUser] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -172,7 +172,7 @@ export default function SocialPanel({ collapsed, onToggle }: SocialPanelProps) {
             {users.map((user) => (
               <button
                 key={user.id}
-                onClick={() => setProfilePopupUser(user.id)}
+                onClick={() => router.push(`/profile/${user.id}`)}
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.04] transition-all active:scale-[0.98] text-left group"
               >
                 <div className="relative shrink-0">
@@ -201,8 +201,6 @@ export default function SocialPanel({ collapsed, onToggle }: SocialPanelProps) {
           </div>
         )}
       </div>
-
-      {profilePopupUser && <ProfilePopup userId={profilePopupUser} onClose={() => setProfilePopupUser(null)} />}
     </aside>
   );
 }

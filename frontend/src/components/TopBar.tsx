@@ -322,7 +322,7 @@ export default function TopBar({ onOpenChat, socialCollapsed, setSocialCollapsed
                           }`}
                         >
                           <button
-                            onClick={() => { markRead(n.id); setShowNotifs(false); if (n.link && n.type !== 'friend_request') router.push(n.link); }}
+                            onClick={() => { markRead(n.id); setShowNotifs(false); if (n.link) router.push(n.link); }}
                             className="w-full text-left flex items-start gap-2.5 px-4 py-3"
                           >
                             <span className="text-base mt-0.5">{typeIcon(n.type)}</span>

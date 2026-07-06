@@ -301,7 +301,7 @@ router.post('/friends/request', requireAuth, async (req, res) => {
       type: 'friend_request',
       title: 'Yeni arkadaşlık isteği',
       body: `${req.user.username} seninle arkadaş olmak istiyor`,
-      link: '/community',
+      link: `/profile/${req.user._id}`,
     });
 
     res.json({ ok: true });
@@ -337,7 +337,7 @@ router.post('/friends/accept/:requestId', requireAuth, async (req, res) => {
         type: 'friend_accept',
         title: 'Arkadaşlık isteği kabul edildi',
         body: `${req.user.username} arkadaşlık isteğini kabul etti`,
-        link: '/community',
+        link: `/profile/${req.user._id}`,
       });
     }
 
@@ -390,7 +390,7 @@ router.post('/friends/accept-from/:fromUserId', requireAuth, async (req, res) =>
         type: 'friend_accept',
         title: 'Arkadaşlık isteği kabul edildi',
         body: `${req.user.username} arkadaşlık isteğini kabul etti`,
-        link: '/community',
+        link: `/profile/${req.user._id}`,
       });
     }
     res.json({ ok: true });
