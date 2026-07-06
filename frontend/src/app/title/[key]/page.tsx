@@ -7,7 +7,6 @@ import Link from 'next/link';
 import api, { baseKey } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import FilmstripRating from '@/components/FilmstripRating';
-import ProfilePopup from '@/components/ProfilePopup';
 
 interface CastMember {
   name: string;
@@ -58,7 +57,6 @@ export default function ContentDetail() {
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(true);
   const [libraryStatus, setLibraryStatus] = useState<string | null>(null);
-  const [profilePopupUser, setProfilePopupUser] = useState<string | null>(null);
 
   const loadComments = async () => {
     try {
@@ -320,14 +318,14 @@ export default function ContentDetail() {
               <div key={c.id} className="bg-surface border border-white/[0.06] rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setProfilePopupUser(String(c.user.id))} className="w-7 h-7 rounded-full bg-honey flex items-center justify-center text-[11px] font-bold text-ink shrink-0 overflow-hidden hover:ring-2 hover:ring-honey/50 transition-all">
+                    <button onClick={() => router.push(`/profile/${String(c.user.id)}`)} className="w-7 h-7 rounded-full bg-honey flex items-center justify-center text-[11px] font-bold text-ink shrink-0 overflow-hidden hover:ring-2 hover:ring-honey/50 transition-all">
                       {c.user.avatar_url ? (
                         <img src={c.user.avatar_url} alt="" className="w-full h-full object-cover" />
                       ) : (
                         c.user.username?.[0]?.toUpperCase() || '?'
                       )}
                     </button>
-                    <button onClick={() => setProfilePopupUser(String(c.user.id))} className="text-sm font-medium text-white hover:text-honey transition-colors">{c.user.username}</button>
+                    <button onClick={() => router.push(`/profile/${String(c.user.id)}`)} className="text-sm font-medium text-white hover:text-honey transition-colors">{c.user.username}</button>
                     <span className="text-[11px] text-gray-500">{new Date(c.created_at).toLocaleDateString('tr-TR')}</span>
                   </div>
                   {user && (String(user.id) === String(c.user.id) || user.role === 'admin') && !c.is_removed && (
@@ -342,7 +340,6 @@ export default function ContentDetail() {
           </div>
         </div>
       </div>
-      {profilePopupUser && <ProfilePopup userId={profilePopupUser} onClose={() => setProfilePopupUser(null)} />}
     </div>
   );
 }
