@@ -105,6 +105,19 @@ const contentCacheSchema = new mongoose.Schema({
   tmdb_id: Number,
   source: { type: String, default: 'tmdb' },
   category: { type: String, default: 'popular' },
+  release_date: Date,
+  next_episode: {
+    air_date: Date,
+    episode_number: Number,
+    season_number: Number,
+    name: String
+  },
+  last_episode: {
+    air_date: Date,
+    episode_number: Number,
+    season_number: Number,
+    name: String
+  },
   synced_at: { type: Date, default: Date.now }
 });
 contentCacheSchema.index({ type: 1, category: 1 });
