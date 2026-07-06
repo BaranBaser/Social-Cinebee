@@ -11,6 +11,7 @@ import ChatDrawer from '@/components/ChatDrawer';
 function ShellInner({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [chatOpen, setChatOpen] = useState(false);
+  const [socialCollapsed, setSocialCollapsed] = useState(false);
 
   return (
     <NotificationProvider>
@@ -19,14 +20,14 @@ function ShellInner({ children }: { children: React.ReactNode }) {
           <Sidebar />
         </Suspense>
 
-        <div className={`flex-1 flex flex-col ml-[240px] ${user ? 'mr-0 lg:mr-[300px]' : ''}`}>
+        <div className={`flex-1 flex flex-col ml-[240px] transition-all duration-300 ${user ? (socialCollapsed ? 'mr-[52px]' : 'mr-0 lg:mr-[300px]') : ''}`}>
           <Suspense fallback={null}>
             <TopBar onOpenChat={() => setChatOpen(true)} />
           </Suspense>
           <main className="flex-1">{children}</main>
         </div>
 
-        {user && <SocialPanel />}
+        {user && <SocialPanel collapsed={socialCollapsed} onToggle={() => setSocialCollapsed(!socialCollapsed)} />}
         <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
       </div>
     </NotificationProvider>

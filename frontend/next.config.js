@@ -18,12 +18,14 @@ const nextConfig = {
       return [
         { source: '/api/:path*', destination: 'http://localhost:5000/api/:path*' },
         { source: '/socket.io/:path*', destination: 'http://localhost:5000/socket.io/:path*' },
+        { source: '/uploads/:path*', destination: 'http://localhost:5000/uploads/:path*' },
       ];
     }
 
     return [
       { source: '/api/:path*', destination: `${apiUrl}/api/:path*` },
       { source: '/socket.io/:path*', destination: `${apiUrl}/socket.io/:path*` },
+      { source: '/uploads/:path*', destination: `${apiUrl}/uploads/:path*` },
     ];
   },
 };

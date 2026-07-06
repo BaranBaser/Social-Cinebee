@@ -41,8 +41,10 @@ router.post('/:userId', requireAuth, async (req, res) => {
 router.delete('/:commentId', requireAuth, async (req, res) => {
   try {
     const comment = await ProfileComment.findById(req.params.commentId);
-    if (!comment) return res.status(404).json({ error: 'Yorum bulunamadı.' });
-    if (comment.author_id.toString() !== req.user._id.toString()) {
+    if (!comment) return res.status(404).json({ error: 'Yorum bulunamadi.' });
+    const isAuthor = comment.author_id.toString() === req.user._id.toString();
+    const isProfileOwner = comment.user_id.toString() === req.user._id.toString();
+    if (!isAuthor && !isProfileOwner) {
       return res.status(403).json({ error: 'Bu yorumu silme yetkiniz yok.' });
     }
     await comment.deleteOne();

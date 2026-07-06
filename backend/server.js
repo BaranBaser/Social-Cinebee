@@ -33,6 +33,7 @@ app.use('/api/library', libraryRoutes);
 app.use('/api/social', require('./routes/social'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/profile-comments', require('./routes/profile-comments'));
+app.use('/api/upload', require('./routes/upload'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

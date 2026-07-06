@@ -10,6 +10,7 @@ interface User {
   email: string;
   bio: string;
   avatar_url: string;
+  banner_url: string;
   role: string;
   created_at: string;
 }

@@ -13,6 +13,7 @@ const userSchema = new mongoose.Schema({
   password_hash: { type: String, required: true },
   bio: { type: String, default: '' },
   avatar_url: { type: String, default: '' },
+  banner_url: { type: String, default: '' },
   role: { type: String, default: 'user' },
   is_banned: { type: Boolean, default: false },
   friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],

@@ -1,40 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 function SettingsContent() {
   const { user, updateUser } = useAuth();
-  const [bio, setBio] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
-  const [profileSaved, setProfileSaved] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
   const [passwordError, setPasswordError] = useState('');
-  const [activeSection, setActiveSection] = useState<'profile' | 'password' | 'account'>('profile');
+  const [activeSection, setActiveSection] = useState<'password' | 'account'>('account');
+  const [version, setVersion] = useState('1.0.0');
+  const router = useRouter();
 
   useEffect(() => {
-    if (user) {
-      setBio(user.bio || '');
-      setAvatarUrl(user.avatar_url || '');
-    }
-  }, [user]);
-
-  async function saveProfile() {
-    setSavingProfile(true);
-    try {
-      const { data } = await api.put('/auth/me', { bio, avatar_url: avatarUrl });
-      updateUser({ ...data.user, avatar_url: avatarUrl });
-      setProfileSaved(true);
-      setTimeout(() => setProfileSaved(false), 2000);
-    } catch {} finally { setSavingProfile(false); }
-  }
+    fetch('/version.json').then(r => r.json()).then(d => setVersion(d.version)).catch(() => {});
+  }, []);
 
   async function changePassword() {
     setPasswordError('');
@@ -56,8 +42,6 @@ function SettingsContent() {
 
   if (!user) return null;
 
-  const displayAvatar = avatarUrl || user.avatar_url;
-
   return (
     <div className="px-6 py-6 max-w-5xl mx-auto">
       {/* Header */}
@@ -73,8 +57,8 @@ function SettingsContent() {
           <div className="bg-surface rounded-2xl border border-white/[0.06] overflow-hidden">
             <div className="px-5 pt-6 pb-5 text-center">
               <div className="w-20 h-20 rounded-full mx-auto mb-3 overflow-hidden flex items-center justify-center ring-4 ring-honey/20 bg-ink">
-                {displayAvatar ? (
-                  <img src={displayAvatar} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                {user.avatar_url ? (
+                  <img src={user.avatar_url.split('?')[0]} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                 ) : (
                   <span className="text-2xl font-bold text-honey">{user.username[0].toUpperCase()}</span>
                 )}
@@ -82,9 +66,9 @@ function SettingsContent() {
               <p className="text-base font-bold text-white">{user.username}</p>
               <p className="text-xs text-muted mt-0.5">{user.email}</p>
               {user.role === 'admin' && (
-                <span className="inline-block mt-2 text-[10px] font-bold tracking-wider uppercase bg-honey/15 text-honey px-2.5 py-1 rounded-full border border-honey/20">Yönetici</span>
+                <span className="inline-block mt-2 text-[10px] font-bold tracking-wider uppercase bg-honey/15 text-honey px-2.5 py-1 rounded-full border border-honey/20">Yonetici</span>
               )}
-              {bio && <p className="text-xs text-gray-400 mt-3 line-clamp-3 leading-relaxed">{bio}</p>}
+              {user.bio && <p className="text-xs text-gray-400 mt-3 line-clamp-3 leading-relaxed">{user.bio}</p>}
             </div>
           </div>
 
@@ -92,16 +76,24 @@ function SettingsContent() {
           <div className="bg-surface rounded-2xl border border-white/[0.06] p-2">
             {[
               { key: 'profile' as const, label: 'Profil', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
-              { key: 'password' as const, label: 'Şifre', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> },
+              { key: 'password' as const, label: 'Sifre', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> },
               { key: 'account' as const, label: 'Hesap', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg> },
             ].map(item => (
               <button
                 key={item.key}
-                onClick={() => setActiveSection(item.key)}
+                onClick={() => {
+                  if (item.key === 'profile') {
+                    router.push('/profile');
+                  } else {
+                    setActiveSection(item.key as 'password' | 'account');
+                  }
+                }}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  activeSection === item.key
-                    ? 'bg-honey/10 text-honey'
-                    : 'text-muted hover:text-white hover:bg-white/[0.04]'
+                  item.key === 'profile'
+                    ? 'text-muted hover:text-white hover:bg-white/[0.04]'
+                    : activeSection === item.key
+                      ? 'bg-honey/10 text-honey'
+                      : 'text-muted hover:text-white hover:bg-white/[0.04]'
                 }`}
               >
                 {item.icon}
@@ -113,63 +105,6 @@ function SettingsContent() {
 
         {/* Right: Content */}
         <div className="flex-1 min-w-0">
-          {activeSection === 'profile' && (
-            <div className="bg-surface rounded-2xl border border-white/[0.06] p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-9 h-9 rounded-xl bg-honey/10 flex items-center justify-center">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5c518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-white">Profil Düzenle</h2>
-                  <p className="text-xs text-muted">Görünüm bilgilerini güncelle</p>
-                </div>
-              </div>
-
-              <div className="space-y-5 max-w-lg">
-                <div>
-                  <label className="text-xs font-medium text-gray-400 block mb-2">Avatar URL</label>
-                  <div className="flex gap-4 items-start">
-                    <div className="w-20 h-20 rounded-full bg-ink border-2 border-white/[0.08] overflow-hidden flex items-center justify-center shrink-0">
-                      {displayAvatar ? (
-                        <img src={displayAvatar} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                      ) : (
-                        <span className="text-2xl font-bold text-honey">{user.username[0].toUpperCase()}</span>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-                        </div>
-                        <input type="url" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)}
-                          placeholder="https://example.com/avatar.jpg"
-                          className="w-full pl-10 pr-4 py-2.5 bg-ink border border-white/[0.06] rounded-xl text-sm text-white placeholder-gray-600 outline-none focus:border-honey/40 focus:ring-1 focus:ring-honey/20 transition-all" />
-                      </div>
-                      <p className="text-[11px] text-gray-500 mt-1.5">Profil resmi için görsel linki yapıştırın (Alphacoders, Imgur vb.)</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium text-gray-400 block mb-2">Biyografi</label>
-                  <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={4}
-                    placeholder="Kendin hakkında kısa bir bilgi yaz..."
-                    className="w-full px-4 py-3 bg-ink border border-white/[0.06] rounded-xl text-sm text-white placeholder-gray-600 resize-none outline-none focus:border-honey/40 focus:ring-1 focus:ring-honey/20 transition-all leading-relaxed" />
-                  <p className="text-[11px] text-gray-600 mt-1.5">{bio.length}/200</p>
-                </div>
-
-                <button onClick={saveProfile} disabled={savingProfile}
-                  className="px-6 py-2.5 bg-honey text-ink text-sm font-bold rounded-xl hover:bg-honey-light transition-all disabled:opacity-40 shadow-lg shadow-honey/10">
-                  {savingProfile ? (
-                    <span className="flex items-center gap-2"><svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Kaydediliyor...</span>
-                  ) : profileSaved ? (
-                    <span className="flex items-center gap-2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Kaydedildi!</span>
-                  ) : 'Kaydet'}
-                </button>
-              </div>
-            </div>
-          )}
-
           {activeSection === 'password' && (
             <div className="bg-surface rounded-2xl border border-white/[0.06] p-6">
               <div className="flex items-center gap-3 mb-6">
@@ -290,7 +225,7 @@ function SettingsContent() {
               <div className="bg-surface rounded-2xl border border-white/[0.06] p-6">
                 <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Hakkında</h3>
                 <p className="text-sm text-gray-400">Cinebee — Film, dizi ve anime takip platformu</p>
-                <p className="text-xs text-gray-600 mt-1">Versiyon 1.0.0</p>
+                <p className="text-xs text-gray-600 mt-1">Versiyon {version}</p>
               </div>
             </div>
           )}

@@ -153,7 +153,7 @@ function HomeInner() {
       setTopRated((topRes.data.results || []).slice(0, 12));
       setMostWatched((watchRes.data.results || []).slice(0, 12));
     } catch (err) {
-      console.error('[CINEBEE] loadHomeData error:', err);
+      console.error('loadHomeData error:', err);
     } finally {
       setLoadingHome(false);
     }

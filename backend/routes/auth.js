@@ -17,6 +17,7 @@ function publicUser(u) {
     email: u.email,
     bio: u.bio,
     avatar_url: u.avatar_url,
+    banner_url: u.banner_url || '',
     role: u.role,
     created_at: u.created_at,
   };
@@ -81,16 +82,17 @@ router.get('/me', requireAuth, (req, res) => {
 });
 
 router.put('/me', requireAuth, async (req, res) => {
-  const { bio, avatar_url } = req.body || {};
+  const { bio, avatar_url, banner_url } = req.body || {};
   try {
     req.user.bio = bio ?? req.user.bio;
     req.user.avatar_url = avatar_url ?? req.user.avatar_url;
+    req.user.banner_url = banner_url ?? req.user.banner_url;
     await req.user.save();
     
     res.json({ user: publicUser(req.user) });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Profil güncellenemedi.' });
+    res.status(500).json({ error: 'Profil guncellenemedi.' });
   }
 });
 
@@ -144,8 +146,8 @@ router.get('/users', requireAuth, async (req, res) => {
 // Public profile
 router.get('/users/:id', async (req, res) => {
   try {
-    const u = await User.findById(req.params.id).select('_id username bio avatar_url role created_at friends friend_requests');
-    if (!u) return res.status(404).json({ error: 'Kullanıcı bulunamadı.' });
+    const u = await User.findById(req.params.id).select('_id username bio avatar_url banner_url role created_at friends friend_requests');
+    if (!u) return res.status(404).json({ error: 'Kullanici bulunamadi.' });
 
     const watchedItems = await Library.find({ user_id: u._id, status: 'watched' })
       .sort({ created_at: -1 })
@@ -160,6 +162,7 @@ router.get('/users/:id', async (req, res) => {
         username: u.username,
         bio: u.bio,
         avatar_url: u.avatar_url,
+        banner_url: u.banner_url || '',
         role: u.role,
         created_at: u.created_at,
         friend_count: u.friends.length,
