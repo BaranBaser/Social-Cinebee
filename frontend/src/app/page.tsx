@@ -37,40 +37,40 @@ const SORTS = [
 ];
 
 function ParticlesBg() {
-  const particles = Array.from({ length: 35 }, (_, i) => ({
+  const particles = Array.from({ length: 45 }, (_, i) => ({
     id: i,
     left: Math.random() * 100,
     delay: Math.random() * 8,
-    duration: 6 + Math.random() * 6,
-    size: 1 + Math.random() * 2,
-    opacity: 0.2 + Math.random() * 0.3,
-    drift: -20 + Math.random() * 40,
+    duration: 5 + Math.random() * 7,
+    size: 2 + Math.random() * 4,
+    opacity: 0.3 + Math.random() * 0.5,
+    drift: -30 + Math.random() * 60,
   }));
 
   return (
     <>
       <style>{`
         @keyframes particleFloat {
-          0% { transform: translateY(0) translateX(0); opacity: var(--p-opacity); }
-          50% { transform: translateY(-50vh) translateX(var(--p-drift)); opacity: var(--p-opacity); }
-          100% { transform: translateY(-100vh) translateX(calc(var(--p-drift) * -0.5)); opacity: 0; }
+          0% { transform: translateY(0) translateX(0); opacity: 0; }
+          20% { opacity: var(--p-opacity); }
+          80% { opacity: var(--p-opacity); }
+          100% { transform: translateY(-100vh) translateX(var(--p-drift)); opacity: 0; }
         }
       `}</style>
       <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
         {particles.map(p => (
           <div
             key={p.id}
-            className="absolute bottom-0 rounded-full"
+            className="absolute bottom-0 rounded-full bg-honey"
             style={{
               left: `${p.left}%`,
               width: p.size,
               height: p.size,
-              backgroundColor: '#f5c518',
-              opacity: p.opacity,
+              boxShadow: `0 0 ${p.size * 2}px ${p.size / 2}px rgba(245, 197, 24, 0.6)`,
+              '--p-opacity': p.opacity,
+              '--p-drift': `${p.drift}px`,
               animation: `particleFloat ${p.duration}s ${p.delay}s linear infinite`,
-              ['--p-opacity' as string]: p.opacity,
-              ['--p-drift' as string]: `${p.drift}px`,
-            }}
+            } as React.CSSProperties}
           />
         ))}
       </div>

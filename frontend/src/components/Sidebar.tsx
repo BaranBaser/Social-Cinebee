@@ -65,10 +65,24 @@ export default function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-[240px] bg-ink border-r border-white/[0.06] flex flex-col z-30 overflow-y-auto scrollbar-hide">
       <div className="px-5 pt-6 pb-4">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="text-2xl font-bold text-white tracking-tight">cinebee</span>
-          <span className="text-lg">🐝</span>
-        </Link>
+        <div className="relative group w-max">
+          <Link href="/" className="flex items-center gap-2 relative z-10">
+            <span className="text-2xl font-bold text-white tracking-tight">cinebee</span>
+            <span className="text-lg">🐝</span>
+          </Link>
+          <div className="absolute top-[100%] left-1 right-8 h-4 pointer-events-none overflow-hidden">
+             <style>{`
+               @keyframes honeyDrip {
+                 0% { d: path('M0,0 Q10,0 20,5 T40,5 T60,2 T80,10 T100,0 Z'); }
+                 50% { d: path('M0,0 Q10,15 20,5 T40,12 T60,5 T80,18 T100,0 Z'); }
+                 100% { d: path('M0,0 Q10,0 20,5 T40,5 T60,2 T80,10 T100,0 Z'); }
+               }
+             `}</style>
+             <svg viewBox="0 0 100 20" preserveAspectRatio="none" className="w-full h-full text-honey fill-current" style={{ filter: 'drop-shadow(0 2px 3px rgba(245, 197, 24, 0.4))' }}>
+               <path d="M0,0 Q10,0 20,5 T40,5 T60,2 T80,10 T100,0 Z" style={{ animation: 'honeyDrip 4s ease-in-out infinite' }} />
+             </svg>
+          </div>
+        </div>
       </div>
 
       {user && (
