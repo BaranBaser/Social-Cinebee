@@ -2,16 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
+import ProfilePopup from '@/components/ProfilePopup';
 
 interface ActiveUser {
-  id: number;
+  id: string;
   username: string;
   avatar_url: string | null;
   last_active: string;
 }
 
 interface FeedPost {
-  id: number;
+  id: string;
   username: string;
   avatar_url: string | null;
   content_title: string | null;
@@ -45,6 +46,7 @@ export default function SocialPanel() {
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [trends, setTrends] = useState<TrendItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [profilePopupUser, setProfilePopupUser] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -112,11 +114,11 @@ export default function SocialPanel() {
             ) : (
               <div className="space-y-1">
                 {friends.map((user) => (
-                  <div key={user.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.04] transition-colors cursor-pointer">
+                  <button key={user.id} onClick={() => setProfilePopupUser(user.id)} className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.04] transition-colors text-left">
                     <div className="relative">
-                      <div className="w-9 h-9 rounded-full bg-surface2 border border-white/[0.06] flex items-center justify-center text-sm font-semibold text-white">
+                      <div className="w-9 h-9 rounded-full bg-surface2 border border-white/[0.06] flex items-center justify-center text-sm font-semibold text-white overflow-hidden">
                         {user.avatar_url ? (
-                          <img src={user.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                          <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
                         ) : (
                           user.username[0].toUpperCase()
                         )}
@@ -127,7 +129,7 @@ export default function SocialPanel() {
                       <p className="text-sm font-medium text-white truncate">{user.username}</p>
                       <p className="text-xs text-muted">{timeAgo(user.last_active)} önce aktif</p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -161,13 +163,13 @@ export default function SocialPanel() {
               posts.map((post) => (
                 <div key={post.id} className="bg-surface rounded-xl p-3 border border-white/[0.06]">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-full bg-surface2 border border-white/[0.06] flex items-center justify-center text-xs font-semibold text-white">
+                    <button onClick={() => setProfilePopupUser(post.id)} className="w-8 h-8 rounded-full bg-surface2 border border-white/[0.06] flex items-center justify-center text-xs font-semibold text-white overflow-hidden shrink-0 hover:ring-2 hover:ring-honey/50 transition-all">
                       {post.avatar_url ? (
-                        <img src={post.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                        <img src={post.avatar_url} alt="" className="w-full h-full object-cover" />
                       ) : (
                         post.username[0].toUpperCase()
                       )}
-                    </div>
+                    </button>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">{post.username}</p>
                       <p className="text-[11px] text-muted">{timeAgo(post.created_at)} önce</p>
@@ -229,6 +231,7 @@ export default function SocialPanel() {
           </div>
         )}
       </div>
+      {profilePopupUser && <ProfilePopup userId={profilePopupUser} onClose={() => setProfilePopupUser(null)} />}
     </aside>
   );
 }

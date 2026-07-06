@@ -26,7 +26,7 @@ function normalizeCache(row) {
   return {
     key: row.content_key,
     type: row.type,
-    title: row.original_title || row.title,
+    title: row.title || row.original_title,
     tagline: '',
     overview: row.overview || '',
     poster: row.poster,
@@ -47,7 +47,7 @@ function normalizeTmdb(item, type) {
   return {
     key: `${type}-${item.id}`,
     type,
-    title: item.original_title || item.original_name || item.title || item.name || 'Unknown',
+    title: item.title || item.name || item.original_title || item.original_name || 'Unknown',
     tagline: item.tagline || '',
     overview: item.overview || '',
     poster: item.poster_path ? `${TMDB_IMG}${item.poster_path}` : null,
@@ -218,7 +218,7 @@ router.get('/detail', async (req, res) => {
       const content = normalizeCache(cached);
       if (cached.source === 'tmdb' && cached.tmdb_id) {
         try {
-          const r = await fetch(`${TMDB_BASE}/${cached.type}/${cached.tmdb_id}?${tmdbParams()}append_to_response=credits,similar,videos`, { headers: tmdbHeaders() });
+          const r = await fetch(`${TMDB_BASE}/${cached.type}/${cached.tmdb_id}?${tmdbParams()}language=en&append_to_response=credits,similar,videos`, { headers: tmdbHeaders() });
           const data = await r.json();
           content.credits = {
             cast: (data.credits?.cast || []).slice(0, 12).map(c => ({
@@ -269,7 +269,7 @@ router.get('/detail', async (req, res) => {
 
     const tmdbKey = process.env.TMDB_API_KEY;
     if (!tmdbKey) return res.status(200).json({ content: null });
-    const r = await fetch(`${TMDB_BASE}/${type}/${id}?${tmdbParams()}append_to_response=credits,similar,videos`, { headers: tmdbHeaders() });
+    const r = await fetch(`${TMDB_BASE}/${type}/${id}?${tmdbParams()}language=en&append_to_response=credits,similar,videos`, { headers: tmdbHeaders() });
     const data = await r.json();
     if (data.success === false) return res.status(404).json({ error: 'Icerik bulunamadi.' });
     const content = normalizeTmdb(data, type);
@@ -286,6 +286,105 @@ router.get('/detail', async (req, res) => {
   } catch (e) {
     console.error('Detail error:', e);
     res.status(500).json({ error: 'Detay alinamadi.' });
+  }
+});
+
+// GET /api/content/browse?type=movie&genre=Action&filter=popular&page=1&sort=rating
+router.get('/browse', async (req, res) => {
+  const type = req.query.type || 'movie';
+  const genre = (req.query.genre || '').trim();
+  const filter = req.query.filter || 'popular';
+  const page = parseInt(req.query.page) || 1;
+  const sort = req.query.sort || 'rating';
+  const limit = 20;
+  const offset = (page - 1) * limit;
+
+  try {
+    let match = { type };
+    if (genre) {
+      match.genres = new RegExp(genre, 'i');
+    }
+
+    let sortObj = {};
+    if (filter === 'new') sortObj = { year: -1 };
+    else if (filter === 'old') sortObj = { year: 1 };
+    else if (sort === 'rating') sortObj = { rating: -1 };
+    else if (sort === 'year') sortObj = { year: -1 };
+    else if (sort === 'title') sortObj = { title: 1 };
+    else sortObj = { rating: -1 };
+
+    // For anime: deduplicate by mal_id
+    const isAnime = type === 'anime';
+    let total, rows;
+
+    if (isAnime) {
+      const countPipeline = [
+        { $match: match },
+        { $group: { _id: '$mal_id' } },
+        { $count: 'total' }
+      ];
+      const countResult = await ContentCache.aggregate(countPipeline);
+      total = countResult[0]?.total || 0;
+
+      const pipeline = [
+        { $match: match },
+        { $sort: sortObj },
+        { $group: { _id: '$mal_id', doc: { $first: '$$ROOT' } } },
+        { $replaceRoot: { newRoot: '$doc' } },
+        { $sort: sortObj },
+        { $skip: offset },
+        { $limit: limit }
+      ];
+      rows = await ContentCache.aggregate(pipeline);
+    } else {
+      // For movie/tv: deduplicate by tmdb_id
+      const countPipeline = [
+        { $match: match },
+        { $group: { _id: '$tmdb_id' } },
+        { $count: 'total' }
+      ];
+      const countResult = await ContentCache.aggregate(countPipeline);
+      total = countResult[0]?.total || 0;
+
+      const pipeline = [
+        { $match: match },
+        { $sort: sortObj },
+        { $group: { _id: '$tmdb_id', doc: { $first: '$$ROOT' } } },
+        { $replaceRoot: { newRoot: '$doc' } },
+        { $sort: sortObj },
+        { $skip: offset },
+        { $limit: limit }
+      ];
+      rows = await ContentCache.aggregate(pipeline);
+    }
+
+    return res.json({
+      results: rows.map(normalizeCache),
+      hasMore: offset + limit < total,
+      total,
+      source: 'cache',
+    });
+  } catch (e) {
+    console.error('Browse error:', e);
+    res.status(500).json({ error: 'İçerik alınamadı.' });
+  }
+});
+
+// GET /api/content/genres?type=movie
+router.get('/genres', async (req, res) => {
+  const type = req.query.type || 'movie';
+  try {
+    const rows = await ContentCache.find({ type }).select('genres -_id').limit(5000);
+    const genreSet = new Set();
+    rows.forEach(r => {
+      if (r.genres) {
+        r.genres.split(', ').forEach(g => { if (g.trim()) genreSet.add(g.trim()); });
+      }
+    });
+    const sorted = Array.from(genreSet).sort();
+    res.json({ genres: sorted });
+  } catch (e) {
+    res.status(500).json({ genres: [] });
   }
 });
 

@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { User, RoomMessage, DmMessage } = require('./db');
+const { User, RoomMessage, DmMessage, Notification } = require('./db');
 
 // userId -> Set(socketId) eşlemesi, çevrimiçi durumu ve DM yönlendirmesi için
 const onlineUsers = new Map();
@@ -79,6 +79,17 @@ function attachSocket(io) {
         if (targetSockets) {
           targetSockets.forEach((sid) => io.to(sid).emit('dm:message', payload));
         }
+        // Bildirim oluştur
+        try {
+          await Notification.create({
+            user_id: toUserId,
+            from_user_id: uid,
+            type: 'message',
+            title: 'Yeni mesaj',
+            body: `${socket.user.username}: "${text.slice(0, 80)}"`,
+            link: '/messages',
+          });
+        } catch {}
       } catch (err) {
         console.error('DM error:', err);
       }

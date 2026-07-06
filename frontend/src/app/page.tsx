@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { useEffect, useState, useCallback, Suspense, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import ContentCard from '@/components/ContentCard';
 
@@ -24,25 +23,27 @@ const TYPES = [
   { key: 'anime', label: 'Animeler' },
 ];
 
-function ScrollRow({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  return (
-    <div className="relative group">
-      <div ref={ref} className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-        {children}
-      </div>
-    </div>
-  );
-}
+const FILTERS = [
+  { key: 'popular', label: 'Popüler' },
+  { key: 'trending', label: 'Trend' },
+  { key: 'new', label: 'Yeni' },
+  { key: 'top_rated', label: 'En Yüksek Puan' },
+];
+
+const SORTS = [
+  { key: 'rating', label: 'Puana Göre' },
+  { key: 'year', label: 'Yeniye Göre' },
+];
 
 function HomeInner() {
   const searchParams = useSearchParams();
-  const queryParam = searchParams.get('q') || '';
+  const router = useRouter();
   const typeParam = searchParams.get('type') || '';
+  const genreParam = searchParams.get('genre') || '';
+  const filterParam = searchParams.get('filter') || '';
 
   const [type, setType] = useState(typeParam || 'movie');
-  const [query, setQuery] = useState(queryParam);
-  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState(searchParams.get('q') || '');
   const [loadingHome, setLoadingHome] = useState(true);
   const [warning, setWarning] = useState('');
   const [featured, setFeatured] = useState<ContentItem | null>(null);
@@ -52,13 +53,47 @@ function HomeInner() {
   const [topRated, setTopRated] = useState<ContentItem[]>([]);
   const [mostWatched, setMostWatched] = useState<ContentItem[]>([]);
 
-  useEffect(() => {
-    if (typeParam) setType(typeParam);
-  }, [typeParam]);
+  // Filter state
+  const [genres, setGenres] = useState<string[]>([]);
+  const [selectedGenre, setSelectedGenre] = useState(genreParam);
+  const [selectedFilter, setSelectedFilter] = useState(filterParam);
+  const [selectedSort, setSelectedSort] = useState('rating');
+  const [filteredItems, setFilteredItems] = useState<ContentItem[]>([]);
+  const [filteredTotal, setFilteredTotal] = useState(0);
+  const [filteredPage, setFilteredPage] = useState(1);
+  const [loadingFiltered, setLoadingFiltered] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
 
+  const hasActiveFilter = selectedGenre || selectedFilter || selectedSort !== 'rating';
+
+  useEffect(() => {
+    setType(typeParam || 'movie');
+    setSelectedGenre(genreParam);
+    setSelectedFilter(filterParam);
+  }, [typeParam, genreParam, filterParam]);
+
+  // Load genres for current type
+  useEffect(() => {
+    api.get('/content/genres', { params: { type } })
+      .then(({ data }) => setGenres(data.genres || []))
+      .catch(() => setGenres([]));
+  }, [type]);
+
+  // Close filter dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
+        setShowFilters(false);
+      }
+    }
+    if (showFilters) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showFilters]);
+
+  // Load home sections
   const loadHomeData = useCallback(async () => {
     setLoadingHome(true);
-    console.log('[CINEBEE] loadHomeData called, type:', type);
     try {
       const [popRes, trendRes, newRes, topRes, watchRes] = await Promise.all([
         api.get('/content/trending', { params: { type, filter: 'popular', page: 1 } }),
@@ -69,7 +104,6 @@ function HomeInner() {
       ]);
 
       const popResults = popRes.data.results || [];
-      console.log('[CINEBEE] Results:', popResults.length, 'popular items');
       if (popResults.length > 0) setFeatured(popResults[0]);
       setPopular(popResults.slice(1, 13));
       setTrending((trendRes.data.results || []).slice(0, 12));
@@ -80,40 +114,75 @@ function HomeInner() {
       console.error('[CINEBEE] loadHomeData error:', err);
     } finally {
       setLoadingHome(false);
-      setLoading(false);
     }
   }, [type]);
 
+  // Load filtered content
+  const loadFiltered = useCallback(async (page = 1) => {
+    setLoadingFiltered(true);
+    try {
+      const params: Record<string, string> = { type, page: String(page), sort: selectedSort };
+      if (selectedGenre) params.genre = selectedGenre;
+      if (selectedFilter) params.filter = selectedFilter;
+      const { data } = await api.get('/content/browse', { params });
+      if (page === 1) {
+        setFilteredItems(data.results || []);
+        setFilteredTotal(data.total || 0);
+      } else {
+        setFilteredItems(prev => [...prev, ...(data.results || [])]);
+      }
+    } catch {} finally { setLoadingFiltered(false); }
+  }, [type, selectedGenre, selectedFilter, selectedSort]);
+
   useEffect(() => {
     if (!query.trim()) {
-      loadHomeData();
+      if (hasActiveFilter) {
+        setFilteredPage(1);
+        loadFiltered(1);
+      } else {
+        loadHomeData();
+      }
     }
-  }, [loadHomeData, query]);
+  }, [loadHomeData, loadFiltered, query, hasActiveFilter]);
 
   useEffect(() => {
-    if (queryParam) setQuery(queryParam);
-  }, [queryParam]);
+    setQuery(searchParams.get('q') || '');
+  }, [searchParams]);
+
+  function resetFilters() {
+    setSelectedGenre('');
+    setSelectedFilter('');
+    setSelectedSort('rating');
+  }
+
+  function applyFilter(genre: string, filter: string, sort: string) {
+    setSelectedGenre(genre);
+    setSelectedFilter(filter);
+    setSelectedSort(sort);
+    setShowFilters(false);
+  }
 
   return (
-    <div className="px-6 py-6">
+    <div className="px-6 py-4 overflow-hidden">
       {query.trim() ? (
         <SearchResults query={query} type={type} setType={setType} />
       ) : (
-        <div className="space-y-10">
-          {featured && (
-            <div className="relative rounded-2xl overflow-hidden bg-surface border border-white/[0.06] min-h-[340px] flex items-end">
+        <div className="space-y-4">
+          {/* Featured */}
+          {featured && !hasActiveFilter && (
+            <div className="relative rounded-2xl overflow-hidden bg-surface border border-white/[0.06] h-[260px] flex items-end">
               <div className="absolute inset-0">
                 {featured.backdrop && (
                   <img src={featured.backdrop} alt={featured.title} className="w-full h-full object-cover opacity-40" />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/60 to-transparent" />
               </div>
-              <div className="relative z-10 p-8 max-w-xl">
-                <span className="inline-block text-[10px] font-black tracking-[0.2em] bg-honey text-ink px-3 py-1 rounded mb-4 uppercase">
+              <div className="relative z-10 p-6 max-w-xl">
+                <span className="inline-block text-[10px] font-black tracking-[0.2em] bg-honey text-ink px-3 py-1 rounded mb-3 uppercase">
                   Öne Çıkan
                 </span>
-                <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">{featured.title}</h2>
-                <div className="flex items-center gap-3 mb-3 text-sm text-muted">
+                <h2 className="text-2xl md:text-3xl font-bold text-white mb-1">{featured.title}</h2>
+                <div className="flex items-center gap-3 mb-2 text-sm text-muted">
                   <span>{featured.year}</span>
                   {featured.rating > 0 && (
                     <span className="flex items-center gap-1">
@@ -128,41 +197,174 @@ function HomeInner() {
                   </span>
                 </div>
                 {featured.overview && (
-                  <p className="text-sm text-gray-300 leading-relaxed mb-5 line-clamp-2">{featured.overview}</p>
+                  <p className="text-sm text-gray-300 leading-relaxed mb-4 line-clamp-1">{featured.overview}</p>
                 )}
-                <div className="flex gap-3">
-                  <Link href={`/title/${featured.key}`} className="px-6 py-2.5 bg-honey text-ink rounded-lg text-sm font-bold hover:bg-honey-light transition-colors">
-                    Hemen İzle
-                  </Link>
-                  <button className="px-6 py-2.5 border border-white/20 text-white rounded-lg text-sm font-medium hover:bg-white/[0.06] transition-colors">
-                    + Listeye Ekle
-                  </button>
-                </div>
               </div>
             </div>
           )}
 
-          <div className="flex items-center gap-2">
-            {TYPES.map((t) => (
+          {/* Type Tabs + Filter Controls */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              {TYPES.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => { resetFilters(); router.replace(`/?type=${t.key}`); }}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                    type === t.key
+                      ? 'bg-honey text-ink shadow-lg shadow-honey/20'
+                      : 'bg-white/[0.04] text-muted hover:text-white hover:bg-white/[0.08] border border-white/[0.06]'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Filter trigger */}
+            <div className="relative ml-2" ref={filterDropdownRef}>
               <button
-                key={t.key}
-                onClick={() => setType(t.key)}
-                className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
-                  type === t.key
-                    ? 'bg-honey text-ink shadow-lg shadow-honey/20'
-                    : 'bg-white/[0.04] text-muted hover:text-white hover:bg-white/[0.08] border border-white/[0.06]'
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                  hasActiveFilter
+                    ? 'bg-honey/10 text-honey border-honey/30'
+                    : 'bg-white/[0.04] text-muted hover:text-white hover:bg-white/[0.08] border-white/[0.06]'
                 }`}
               >
-                {t.label}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                </svg>
+                Filtrele
+                {hasActiveFilter && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-honey" />
+                )}
               </button>
-            ))}
+
+              {showFilters && (
+                <div className="absolute left-0 top-full mt-2 w-72 bg-surface border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/40 z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-white">Filtrele</h3>
+                    {hasActiveFilter && (
+                      <button onClick={resetFilters} className="text-[11px] text-honey hover:text-honey-light transition-colors">Sıfırla</button>
+                    )}
+                  </div>
+
+                  <div className="p-4 space-y-4">
+                    {/* Genre */}
+                    <div>
+                      <label className="text-xs text-muted font-medium mb-1.5 block">Tür</label>
+                      <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
+                        <button
+                          onClick={() => applyFilter('', selectedFilter, selectedSort)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                            !selectedGenre ? 'bg-honey text-ink' : 'bg-white/[0.06] text-muted hover:text-white'
+                          }`}
+                        >
+                          Hepsi
+                        </button>
+                        {genres.map(g => (
+                          <button
+                            key={g}
+                            onClick={() => applyFilter(g, selectedFilter, selectedSort)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                              selectedGenre === g ? 'bg-honey text-ink' : 'bg-white/[0.06] text-muted hover:text-white'
+                            }`}
+                          >
+                            {g}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Filter */}
+                    <div>
+                      <label className="text-xs text-muted font-medium mb-1.5 block">Sıralama</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {FILTERS.map(f => (
+                          <button
+                            key={f.key}
+                            onClick={() => applyFilter(selectedGenre, f.key, selectedSort)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                              selectedFilter === f.key ? 'bg-honey text-ink' : 'bg-white/[0.06] text-muted hover:text-white'
+                            }`}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Sort */}
+                    <div>
+                      <label className="text-xs text-muted font-medium mb-1.5 block">Gösterim</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {SORTS.map(s => (
+                          <button
+                            key={s.key}
+                            onClick={() => applyFilter(selectedGenre, selectedFilter, s.key)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                              selectedSort === s.key ? 'bg-honey text-ink' : 'bg-white/[0.06] text-muted hover:text-white'
+                            }`}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          <Section title="Şimdi Popüler" items={popular} loading={loadingHome} type={type} filter="popular" />
-          <Section title="Trend" items={trending} loading={loadingHome} type={type} filter="trending" />
-          <Section title="Yeni Eklenenler" items={newItems} loading={loadingHome} type={type} filter="new" />
-          <Section title="En Yüksek Puanlılar" items={topRated} loading={loadingHome} type={type} filter="top_rated" />
-          <Section title="En Çok İzlenenler" items={mostWatched} loading={loadingHome} type={type} filter="most_watched" />
+          {/* Filtered Results */}
+          {hasActiveFilter ? (
+            <div>
+              {loadingFiltered && filteredPage === 1 ? (
+                <div className="grid grid-cols-6 gap-3">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <div key={i}>
+                      <div className="aspect-[2/3] rounded-xl animate-shimmer bg-surface2" />
+                      <div className="h-3 rounded-md animate-shimmer bg-surface2 w-3/4 mt-2" />
+                    </div>
+                  ))}
+                </div>
+              ) : filteredItems.length === 0 ? (
+                <div className="text-center py-20">
+                  <p className="text-muted text-sm">Bu filtrelerle sonuç bulunamadı.</p>
+                  <button onClick={resetFilters} className="text-honey text-sm mt-2 hover:text-honey-light transition-colors">Filtreleri sıfırla</button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-muted mb-3">{filteredTotal} sonuç bulundu</p>
+                  <div className="grid grid-cols-6 gap-3">
+                    {filteredItems.map((item, i) => (
+                      <ContentCard key={`${item.key}-${i}`} item={item} />
+                    ))}
+                  </div>
+                  {filteredItems.length < filteredTotal && (
+                    <div className="flex justify-center mt-6">
+                      <button
+                        onClick={() => { const next = filteredPage + 1; setFilteredPage(next); loadFiltered(next); }}
+                        disabled={loadingFiltered}
+                        className="px-6 py-2 bg-surface border border-white/[0.06] text-sm font-medium text-white rounded-xl hover:bg-white/[0.06] transition-colors disabled:opacity-50"
+                      >
+                        {loadingFiltered ? 'Yükleniyor...' : 'Daha Fazla'}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            <>
+              <Section title="Şimdi Popüler" items={popular} loading={loadingHome} />
+              <Section title="Trend" items={trending} loading={loadingHome} />
+              <Section title="Yeni Eklenenler" items={newItems} loading={loadingHome} />
+              <Section title="En Yüksek Puanlılar" items={topRated} loading={loadingHome} />
+              <Section title="En Çok İzlenenler" items={mostWatched} loading={loadingHome} />
+            </>
+          )}
         </div>
       )}
 
@@ -175,33 +377,28 @@ function HomeInner() {
   );
 }
 
-function Section({ title, items, loading, type, filter }: { title: string; items: ContentItem[]; loading: boolean; type: string; filter: string }) {
+function Section({ title, items, loading }: { title: string; items: ContentItem[]; loading: boolean }) {
   return (
     <section>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-white">{title}</h2>
-        <Link href={`/discover?type=${type}&filter=${filter}`} className="text-xs text-honey hover:text-honey-light transition-colors font-medium">
-          Tümünü Gör →
-        </Link>
-      </div>
+      <h2 className="text-base font-bold text-white mb-2">{title}</h2>
       {loading ? (
-        <div className="flex gap-3 overflow-hidden">
+        <div className="grid grid-cols-6 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex-shrink-0 w-[160px]">
+            <div key={i}>
               <div className="aspect-[2/3] rounded-xl animate-shimmer bg-surface2" />
-              <div className="h-4 rounded-md animate-shimmer bg-surface2 w-3/4 mt-2" />
-              <div className="h-3 rounded-md animate-shimmer bg-surface2 w-1/2 mt-1" />
+              <div className="h-3 rounded-md animate-shimmer bg-surface2 w-3/4 mt-2" />
+              <div className="h-2.5 rounded-md animate-shimmer bg-surface2 w-1/2 mt-1" />
             </div>
           ))}
         </div>
       ) : items.length === 0 ? null : (
-        <ScrollRow>
-          {items.map((item, i) => (
-            <div key={`${item.key}-${i}`} className="flex-shrink-0 w-[160px]">
+        <div className="grid grid-cols-6 gap-3">
+          {items.slice(0, 6).map((item, i) => (
+            <div key={`${item.key}-${i}`}>
               <ContentCard item={item} />
             </div>
           ))}
-        </ScrollRow>
+        </div>
       )}
     </section>
   );
@@ -232,7 +429,7 @@ function SearchResults({ query, type, setType }: { query: string; type: string; 
       </div>
       <h2 className="text-lg font-semibold text-white mb-4">&ldquo;{query}&rdquo; için sonuçlar</h2>
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-6 gap-3">
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="flex flex-col gap-2">
               <div className="aspect-[2/3] rounded-xl animate-shimmer bg-surface2" />
@@ -243,7 +440,7 @@ function SearchResults({ query, type, setType }: { query: string; type: string; 
       ) : items.length === 0 ? (
         <div className="text-muted text-sm py-20 text-center">&ldquo;{query}&rdquo; için sonuç bulunamadı.</div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-6 gap-3">
           {items.map((item, i) => <ContentCard key={`${item.key}-${i}`} item={item} />)}
         </div>
       )}
@@ -254,14 +451,27 @@ function SearchResults({ query, type, setType }: { query: string; type: string; 
 export default function Home() {
   return (
     <Suspense fallback={
-      <div className="px-6 py-6">
-        <div className="space-y-10">
-          <div className="relative rounded-2xl overflow-hidden bg-surface border border-white/[0.06] min-h-[340px]">
+      <div className="px-6 py-4 overflow-hidden">
+        <div className="space-y-4">
+          <div className="relative rounded-2xl overflow-hidden bg-surface border border-white/[0.06] h-[260px]">
             <div className="absolute inset-0 animate-shimmer bg-surface2" />
           </div>
-          <div className="flex gap-3">
-            {TYPES.map((t) => <div key={t.key} className="h-10 w-24 rounded-full animate-shimmer bg-surface2" />)}
+          <div className="flex gap-2">
+            {TYPES.map((t) => <div key={t.key} className="h-8 w-20 rounded-full animate-shimmer bg-surface2" />)}
           </div>
+          {Array.from({ length: 5 }).map((_, s) => (
+            <div key={s}>
+              <div className="h-4 w-32 rounded animate-shimmer bg-surface2 mb-2" />
+              <div className="grid grid-cols-6 gap-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i}>
+                    <div className="aspect-[2/3] rounded-xl animate-shimmer bg-surface2" />
+                    <div className="h-3 rounded-md animate-shimmer bg-surface2 w-3/4 mt-2" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     }>

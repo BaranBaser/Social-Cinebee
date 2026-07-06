@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { NotificationProvider } from '@/context/NotificationContext';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import SocialPanel from '@/components/SocialPanel';
@@ -12,17 +13,23 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   const [chatOpen, setChatOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-ink">
-      <Sidebar />
+    <NotificationProvider>
+      <div className="flex min-h-screen bg-ink">
+        <Suspense fallback={null}>
+          <Sidebar />
+        </Suspense>
 
-      <div className={`flex-1 flex flex-col ml-[240px] ${user ? 'mr-0 lg:mr-[300px]' : ''}`}>
-        <TopBar onOpenChat={() => setChatOpen(true)} />
-        <main className="flex-1">{children}</main>
+        <div className={`flex-1 flex flex-col ml-[240px] ${user ? 'mr-0 lg:mr-[300px]' : ''}`}>
+          <Suspense fallback={null}>
+            <TopBar onOpenChat={() => setChatOpen(true)} />
+          </Suspense>
+          <main className="flex-1">{children}</main>
+        </div>
+
+        {user && <SocialPanel />}
+        <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
       </div>
-
-      {user && <SocialPanel />}
-      <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
-    </div>
+    </NotificationProvider>
   );
 }
 

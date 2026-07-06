@@ -18,13 +18,42 @@ function tmQ() {
 }
 
 let synced = 0;
+let movieGenreMap = {};
+let tvGenreMap = {};
+
+async function fetchGenreMaps() {
+  try {
+    const [movieRes, tvRes] = await Promise.all([
+      fetch(`${TMDB}/genre/movie/list?${tmQ()}language=en`, { headers: tmH() }),
+      fetch(`${TMDB}/genre/tv/list?${tmQ()}language=en`, { headers: tmH() })
+    ]);
+    const movieData = await movieRes.json();
+    const tvData = await tvRes.json();
+    movieGenreMap = {};
+    tvGenreMap = {};
+    (movieData.genres || []).forEach(g => { movieGenreMap[g.id] = g.name; });
+    (tvData.genres || []).forEach(g => { tvGenreMap[g.id] = g.name; });
+    console.log(`  Genre maps: ${Object.keys(movieGenreMap).length} movie, ${Object.keys(tvGenreMap).length} TV`);
+  } catch (e) {
+    console.error('Genre fetch error:', e.message);
+  }
+}
+
+function resolveGenres(genreIds, type) {
+  if (!genreIds || !genreIds.length) return '';
+  const map = type === 'movie' ? movieGenreMap : tvGenreMap;
+  return genreIds.map(id => map[id]).filter(Boolean).join(', ');
+}
+
 function save(k,t,ti,ot,ov,po,ba,ra,ye,du,ge,st,sn,ep,mi,tm,so,ca) {
   return ContentCache.updateOne(
     { content_key: k },
-    { $setOnInsert: {
+    {
+      $set: { genres: ge || '' },
+      $setOnInsert: {
         type: t, title: ti, original_title: ot || ti, overview: ov || '',
         poster: po || null, backdrop: ba || null, rating: ra || 0, year: ye || '',
-        duration: du || null, genres: ge || '', status: st || '',
+        duration: du || null, status: st || '',
         number_of_seasons: sn || null, number_of_episodes: ep || null,
         mal_id: mi || null, tmdb_id: tm || null, source: so, category: ca, synced_at: new Date()
       }
@@ -43,7 +72,7 @@ async function tmdbList(path, type, cat, maxPages) {
   let total = 0;
   for (let p = 1; p <= maxPages; p++) {
     try {
-      const r = await fetch(`${TMDB}/${path}?${tmQ()}page=${p}`, { headers: tmH(), timeout: 12000 });
+      const r = await fetch(`${TMDB}/${path}?${tmQ()}language=en&page=${p}`, { headers: tmH(), timeout: 12000 });
       if (r.status === 429) { await sleep(4000); p--; continue; }
       if (!r.ok) break;
       const d = await r.json();
@@ -59,7 +88,7 @@ async function tmdbList(path, type, cat, maxPages) {
           i.poster_path ? TMDB_IMG + i.poster_path : null,
           i.backdrop_path ? TMDB_BG + i.backdrop_path : null,
           i.vote_average || 0, year, i.runtime || null,
-          '', i.status || '', i.number_of_seasons || null,
+          resolveGenres(i.genre_ids, type), i.status || '', i.number_of_seasons || null,
           i.number_of_episodes || null, null, i.id, 'tmdb', cat));
         total++;
       }
@@ -76,7 +105,7 @@ async function tmdbDiscover(params, type, cat, maxPages) {
   let total = 0;
   for (let p = 1; p <= maxPages; p++) {
     try {
-      const r = await fetch(`${TMDB}/discover/${type}?${tmQ()}${params}page=${p}`, { headers: tmH(), timeout: 12000 });
+      const r = await fetch(`${TMDB}/discover/${type}?${tmQ()}${params}language=en&page=${p}`, { headers: tmH(), timeout: 12000 });
       if (r.status === 429) { await sleep(4000); p--; continue; }
       if (!r.ok) break;
       const d = await r.json();
@@ -92,7 +121,7 @@ async function tmdbDiscover(params, type, cat, maxPages) {
           i.poster_path ? TMDB_IMG + i.poster_path : null,
           i.backdrop_path ? TMDB_BG + i.backdrop_path : null,
           i.vote_average || 0, year, i.runtime || null,
-          '', i.status || '', i.number_of_seasons || null,
+          resolveGenres(i.genre_ids, type), i.status || '', i.number_of_seasons || null,
           i.number_of_episodes || null, null, i.id, 'tmdb', cat));
         total++;
       }
@@ -108,6 +137,8 @@ async function syncAll() {
   const t0 = Date.now();
   synced = 0;
   console.log('\n🚀 CINEMA-AI SENKRONİZASYON BAŞLADI\n');
+
+  await fetchGenreMaps();
 
   // Eski cache'i temizlemiyoruz, çünkü upsert kullanıyoruz.
 

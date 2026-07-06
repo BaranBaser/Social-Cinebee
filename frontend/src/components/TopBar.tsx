@@ -1,19 +1,48 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
+import { useNotifications } from '@/context/NotificationContext';
+import api from '@/lib/api';
 
 interface TopBarProps {
   onOpenChat: () => void;
 }
 
+interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  link: string;
+  is_read: boolean;
+  created_at: string;
+  from_user: { id: string; username: string; avatar_url: string } | null;
+}
+
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr + 'Z').getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'az önce';
+  if (mins < 60) return `${mins}dk`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}sa`;
+  const days = Math.floor(hrs / 24);
+  return `${days}g`;
+}
+
 export default function TopBar({ onOpenChat }: TopBarProps) {
   const { user, logout } = useAuth();
+  const { unreadCount, refresh } = useNotifications();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loadingNotifs, setLoadingNotifs] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,12 +51,62 @@ export default function TopBar({ onOpenChat }: TopBarProps) {
     }
   };
 
+  useEffect(() => {
+    if (!showNotifs) return;
+    loadNotifs();
+  }, [showNotifs]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifs(false);
+      }
+    }
+    if (showNotifs) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNotifs]);
+
+  async function loadNotifs() {
+    setLoadingNotifs(true);
+    try {
+      const { data } = await api.get('/notifications', { params: { limit: 15 } });
+      setNotifications(data.notifications || []);
+    } catch {} finally { setLoadingNotifs(false); }
+  }
+
+  async function markAllRead() {
+    try {
+      await api.post('/notifications/read');
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      refresh();
+    } catch {}
+  }
+
+  async function markRead(id: string) {
+    try {
+      await api.post(`/notifications/read/${id}`);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      refresh();
+    } catch {}
+  }
+
+  const typeIcon = (type: string) => {
+    switch (type) {
+      case 'message': return '💬';
+      case 'comment': return '💬';
+      case 'like': return '❤️';
+      case 'friend_request': return '👤';
+      case 'friend_accept': return '👥';
+      default: return '🔔';
+    }
+  };
+
   return (
     <header className="sticky top-0 z-20 bg-ink/80 backdrop-blur-xl border-b border-white/[0.06]">
-      <div className="h-14 grid grid-cols-[1fr_auto_1fr] items-center px-6 gap-4">
-        <div />
+      <div className="h-14 flex items-center px-6 gap-4">
+        <div className="flex-1" />
 
-        <form onSubmit={handleSearch} className="w-80">
+        <form onSubmit={handleSearch} className="w-80 shrink-0">
           <div className="flex items-center gap-2 bg-white/[0.06] rounded-full px-4 py-2 border border-white/[0.06] hover:border-white/[0.1] transition-colors focus-within:border-honey/40">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
@@ -41,94 +120,152 @@ export default function TopBar({ onOpenChat }: TopBarProps) {
           </div>
         </form>
 
-        <div className="flex items-center justify-end gap-2">
-          {user && (
-            <button
-              onClick={() => router.push('/?new=1')}
-              className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-muted hover:text-white"
-              title="Yeni Ekle"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" x2="12" y1="5" y2="19" /><line x1="5" x2="19" y1="12" y2="12" />
-              </svg>
-            </button>
-          )}
+        <div className="flex-1" />
 
-          <button
-            className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-muted hover:text-white relative"
-            title="Bildirimler"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-            </svg>
-            <span className="absolute top-1 right-1 w-2 h-2 bg-honey rounded-full" />
-          </button>
-
+        <div className="flex items-center gap-2 shrink-0">
           {user && (
-            <button
-              onClick={onOpenChat}
-              className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-muted hover:text-white"
-              title="Mesajlar"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" />
-              </svg>
-            </button>
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={() => setShowNotifs(!showNotifs)}
+                className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-muted hover:text-white relative"
+                title="Bildirimler"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-honey text-ink text-[10px] font-bold rounded-full px-1">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotifs && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-surface border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/40 z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-white">Bildirimler</h3>
+                    {notifications.some(n => !n.is_read) && (
+                      <button onClick={markAllRead} className="text-[11px] text-honey hover:text-honey-light transition-colors font-medium">
+                        Tümünü okundu işaretle
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {loadingNotifs ? (
+                      <div className="p-4 space-y-3">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                          <div key={i} className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full animate-shimmer bg-surface2 shrink-0" />
+                            <div className="flex-1"><div className="h-2.5 rounded animate-shimmer bg-surface2 w-2/3 mb-1.5" /><div className="h-2 rounded animate-shimmer bg-surface2 w-1/2" /></div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : notifications.length === 0 ? (
+                      <div className="py-8 text-center">
+                        <p className="text-sm text-muted">Bildirim bulunmuyor</p>
+                      </div>
+                    ) : (
+                      notifications.map(n => (
+                        <button
+                          key={n.id}
+                          onClick={() => { markRead(n.id); setShowNotifs(false); if (n.link) router.push(n.link); }}
+                          className={`w-full text-left flex items-start gap-2.5 px-4 py-3 transition-colors border-b border-white/[0.04] last:border-0 ${
+                            n.is_read ? 'hover:bg-white/[0.02]' : 'bg-honey/[0.03] hover:bg-honey/[0.06]'
+                          }`}
+                        >
+                          <span className="text-base mt-0.5">{typeIcon(n.type)}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className={`text-xs font-semibold ${n.is_read ? 'text-gray-400' : 'text-white'}`}>{n.title}</p>
+                              {!n.is_read && <span className="w-1.5 h-1.5 rounded-full bg-honey shrink-0" />}
+                            </div>
+                            <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2 leading-relaxed">{n.body}</p>
+                            <p className="text-[10px] text-gray-700 mt-1">{timeAgo(n.created_at)} önce</p>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {user ? (
-            <div className="relative ml-1">
+            <>
               <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors"
+                onClick={() => router.push('/?new=1')}
+                className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-muted hover:text-white"
+                title="Yeni Ekle"
               >
-                <div className="w-8 h-8 rounded-full bg-surface2 border border-white/[0.06] flex items-center justify-center text-sm font-semibold text-white overflow-hidden">
-                  {user.avatar_url ? (
-                    <img src={user.avatar_url} alt={user.username} className="w-full h-full object-cover" />
-                  ) : (
-                    user.username[0].toUpperCase()
-                  )}
-                </div>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" x2="12" y1="5" y2="19" /><line x1="5" x2="19" y1="12" y2="12" />
+                </svg>
               </button>
-              {showUserMenu && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-surface border border-white/[0.06] rounded-xl shadow-2xl z-50 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-white/[0.06]">
-                      <p className="text-sm font-semibold text-white truncate">{user.username}</p>
-                      <p className="text-xs text-muted truncate">{user.email}</p>
-                    </div>
-                    <div className="py-1">
-                      <Link href="/profile" className="block px-4 py-2 text-sm text-muted hover:text-white hover:bg-white/[0.04] transition-colors" onClick={() => setShowUserMenu(false)}>
-                        Profilim
-                      </Link>
-                      <Link href="/library" className="block px-4 py-2 text-sm text-muted hover:text-white hover:bg-white/[0.04] transition-colors" onClick={() => setShowUserMenu(false)}>
-                        Kütüphanem
-                      </Link>
-                      {user.role === 'admin' && (
-                        <Link href="/admin" className="block px-4 py-2 text-sm text-honey hover:bg-honey/10 transition-colors" onClick={() => setShowUserMenu(false)}>
-                          Yönetici Paneli
-                        </Link>
-                      )}
-                    </div>
-                    <div className="border-t border-white/[0.06] py-1">
-                      <button
-                        onClick={() => { logout(); router.push('/'); setShowUserMenu(false); }}
-                        className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-400/10 transition-colors"
-                      >
-                        Çıkış Yap
-                      </button>
-                    </div>
+
+              <button
+                onClick={onOpenChat}
+                className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-muted hover:text-white"
+                title="Mesajlar"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" />
+                </svg>
+              </button>
+
+              <div className="relative ml-1">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-surface2 border border-white/[0.06] flex items-center justify-center text-sm font-semibold text-white overflow-hidden">
+                    {user.avatar_url ? (
+                      <img src={user.avatar_url} alt={user.username} className="w-full h-full object-cover" />
+                    ) : (
+                      user.username[0].toUpperCase()
+                    )}
                   </div>
-                </>
-              )}
-            </div>
+                </button>
+                {showUserMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-surface border border-white/[0.06] rounded-xl shadow-2xl z-50 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-white/[0.06]">
+                        <p className="text-sm font-semibold text-white truncate">{user.username}</p>
+                        <p className="text-xs text-muted truncate">{user.email}</p>
+                      </div>
+                      <div className="py-1">
+                        <Link href="/profile" className="block px-4 py-2 text-sm text-muted hover:text-white hover:bg-white/[0.04] transition-colors" onClick={() => setShowUserMenu(false)}>
+                          Profilim
+                        </Link>
+                        <Link href="/library" className="block px-4 py-2 text-sm text-muted hover:text-white hover:bg-white/[0.04] transition-colors" onClick={() => setShowUserMenu(false)}>
+                          Kütüphanem
+                        </Link>
+                        {user.role === 'admin' && (
+                          <Link href="/admin" className="block px-4 py-2 text-sm text-honey hover:bg-honey/10 transition-colors" onClick={() => setShowUserMenu(false)}>
+                            Yönetici Paneli
+                          </Link>
+                        )}
+                      </div>
+                      <div className="border-t border-white/[0.06] py-1">
+                        <button
+                          onClick={() => { logout(); router.push('/'); setShowUserMenu(false); }}
+                          className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-400/10 transition-colors"
+                        >
+                          Çıkış Yap
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
           ) : (
-            <div className="flex items-center gap-2 ml-2">
-              <Link href="/login" className="px-3 py-1.5 text-sm rounded-lg text-muted hover:text-white hover:bg-white/[0.06] transition-colors">
+            <div className="flex items-center gap-3">
+              <Link href="/login" className="px-4 py-2 text-sm font-medium rounded-lg text-muted hover:text-white hover:bg-white/[0.06] transition-colors">
                 Giriş yap
               </Link>
-              <Link href="/register" className="px-3 py-1.5 text-sm rounded-lg bg-honey text-ink font-semibold hover:bg-honey-light transition-colors">
+              <Link href="/register" className="px-4 py-2 text-sm font-bold rounded-lg bg-honey text-ink hover:bg-honey-light transition-colors">
                 Kayıt ol
               </Link>
             </div>

@@ -94,6 +94,26 @@ router.put('/me', requireAuth, async (req, res) => {
   }
 });
 
+// PUT /api/auth/change-password
+router.put('/change-password', requireAuth, async (req, res) => {
+  const { current_password, new_password } = req.body || {};
+  if (!current_password || !new_password) {
+    return res.status(400).json({ error: 'Mevcut ve yeni şifre gerekli.' });
+  }
+  if (String(new_password).length < 6) {
+    return res.status(400).json({ error: 'Yeni şifre en az 6 karakter olmalı.' });
+  }
+  try {
+    const ok = bcrypt.compareSync(current_password, req.user.password_hash);
+    if (!ok) return res.status(401).json({ error: 'Mevcut şifre hatalı.' });
+    req.user.password_hash = bcrypt.hashSync(new_password, 10);
+    await req.user.save();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Şifre değiştirilemedi.' });
+  }
+});
+
 // Sohbet için kullanıcı arama/listeleme
 router.get('/users', requireAuth, async (req, res) => {
   const q = (req.query.q || '').toString().trim();
@@ -118,6 +138,27 @@ router.get('/users', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Kullanıcılar alınamadı.' });
+  }
+});
+
+// Public profile
+router.get('/users/:id', async (req, res) => {
+  try {
+    const u = await User.findById(req.params.id).select('_id username bio avatar_url role created_at friends friend_requests');
+    if (!u) return res.status(404).json({ error: 'Kullanıcı bulunamadı.' });
+    res.json({
+      user: {
+        id: u._id,
+        username: u.username,
+        bio: u.bio,
+        avatar_url: u.avatar_url,
+        role: u.role,
+        created_at: u.created_at,
+        friend_count: u.friends.length,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Profil alınamadı.' });
   }
 });
 

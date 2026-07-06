@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
 const navItems = [
@@ -10,22 +10,17 @@ const navItems = [
       <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
     </svg>
   )},
-  { href: '/discover', label: 'Keşif', icon: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
-    </svg>
-  )},
-  { href: '/?type=tv', label: 'Diziler', icon: (
+  { href: '/?type=tv', label: 'Diziler', typeParam: 'tv', icon: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect width="20" height="15" x="2" y="3" rx="2" /><polyline points="8 21 12 17 16 21" />
     </svg>
   )},
-  { href: '/?type=movie', label: 'Filmler', icon: (
+  { href: '/?type=movie', label: 'Filmler', typeParam: 'movie', icon: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect width="18" height="18" x="3" y="3" rx="2" /><path d="M7 3v18" /><path d="M3 7.5h4" /><path d="M3 12h18" /><path d="M3 16.5h4" /><path d="M17 3v18" /><path d="M17 7.5h4" /><path d="M17 16.5h4" />
     </svg>
   )},
-  { href: '/?type=anime', label: 'Animeler', icon: (
+  { href: '/?type=anime', label: 'Animeler', typeParam: 'anime', icon: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
     </svg>
@@ -58,11 +53,6 @@ const navItems = [
 ];
 
 const bottomItems = [
-  { href: '/notifications', label: 'Bildirimler', icon: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-    </svg>
-  )},
   { href: '/messages', label: 'Mesajlar', icon: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" />
@@ -83,6 +73,8 @@ const bottomItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const typeFromUrl = searchParams.get('type');
   const { user } = useAuth();
 
   return (
@@ -115,7 +107,11 @@ export default function Sidebar() {
       <nav className="flex-1 px-3 py-2">
         <div className="space-y-0.5">
           {navItems.map((item) => {
-            const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+            const isActive = item.href === '/'
+              ? pathname === '/' && !typeFromUrl
+              : 'typeParam' in item
+                ? pathname === '/' && typeFromUrl === item.typeParam
+                : pathname === item.href || pathname.startsWith(item.href + '?') || pathname.startsWith(item.href + '/');
             return (
               <Link
                 key={item.href}
@@ -137,7 +133,7 @@ export default function Sidebar() {
 
         <div className="space-y-0.5">
           {bottomItems.map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             return (
               <Link
                 key={item.href}
@@ -148,7 +144,9 @@ export default function Sidebar() {
                     : 'text-muted hover:text-white hover:bg-white/[0.04] border-l-[3px] border-transparent pl-[9px]'
                 }`}
               >
-                <span className={isActive ? 'text-honey' : 'text-muted'}>{item.icon}</span>
+                <span className={isActive ? 'text-honey' : 'text-muted'}>
+                  {item.icon}
+                </span>
                 {item.label}
               </Link>
             );

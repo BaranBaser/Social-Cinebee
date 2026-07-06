@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Send, Hash, Search, Circle } from 'lucide-react';
 import api from '@/lib/api';
-import { getSocket } from '@/lib/socket';
+import { getSocket, ensureSocket } from '@/lib/socket';
 import { useAuth } from '@/context/AuthContext';
 
 interface Message {
@@ -63,22 +63,31 @@ export default function ChatDrawer({ open, onClose }: { open: boolean; onClose: 
 
   useEffect(() => {
     if (!open || !user) return;
-    api.get('/chat/rooms').then((r) => setRooms(r.data.rooms));
-    api.get('/chat/dm').then((r) => setConversations(r.data.conversations));
+    api.get('/chat/rooms').then((r) => setRooms(r.data.rooms || [])).catch(() => {});
+    api.get('/chat/dm').then((r) => setConversations(r.data.conversations || [])).catch(() => {});
+  }, [open, user]);
 
+  useEffect(() => {
+    if (!open || !user) return;
     const socket = getSocket();
     if (!socket) return;
 
     const onRoomMsg = (msg: Message) => {
-      if (activeRoom && msg.roomId === activeRoom.id) {
-        setRoomMessages((prev) => [...prev, msg]);
-      }
+      setRoomMessages((prev) => {
+        if (activeRoom && msg.roomId === activeRoom.id) {
+          return [...prev, msg];
+        }
+        return prev;
+      });
     };
     const onDmMsg = (msg: Message) => {
-      if (activeDmUser && (msg.sender_id === activeDmUser.id || msg.receiver_id === activeDmUser.id)) {
-        setDmMessages((prev) => [...prev, msg]);
-      }
-      api.get('/chat/dm').then((r) => setConversations(r.data.conversations));
+      setDmMessages((prev) => {
+        if (activeDmUser && (msg.sender_id === activeDmUser.id || msg.receiver_id === activeDmUser.id)) {
+          return [...prev, msg];
+        }
+        return prev;
+      });
+      api.get('/chat/dm').then((r) => setConversations(r.data.conversations || [])).catch(() => {});
     };
     const onPresence = (p: { onlineUserIds: number[] }) => setOnlineIds(p.onlineUserIds || []);
 
@@ -91,27 +100,33 @@ export default function ChatDrawer({ open, onClose }: { open: boolean; onClose: 
       socket.off('dm:message', onDmMsg);
       socket.off('presence:update', onPresence);
     };
-  }, [open, user, activeRoom, activeDmUser]);
+  }, [open, user]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [roomMessages, dmMessages]);
 
   const openRoom = async (room: Room) => {
-    const socket = getSocket();
-    if (activeRoom) socket?.emit('room:leave', activeRoom.id);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('cinemaai_token') : null;
+    if (!token) return;
+    const socket = ensureSocket(token);
+    if (activeRoom) socket.emit('room:leave', activeRoom.id);
     setActiveRoom(room);
     setActiveDmUser(null);
-    socket?.emit('room:join', room.id);
-    const { data } = await api.get(`/chat/rooms/${room.id}/messages`);
-    setRoomMessages(data.messages);
+    socket.emit('room:join', room.id);
+    try {
+      const { data } = await api.get(`/chat/rooms/${room.id}/messages`);
+      setRoomMessages(data.messages || []);
+    } catch { setRoomMessages([]); }
   };
 
   const openDm = async (u: { id: number; username: string }) => {
     setActiveDmUser(u);
     setActiveRoom(null);
-    const { data } = await api.get(`/chat/dm/${u.id}`);
-    setDmMessages(data.messages);
+    try {
+      const { data } = await api.get(`/chat/dm/${u.id}`);
+      setDmMessages(data.messages || []);
+    } catch { setDmMessages([]); }
   };
 
   const searchUsers = async (q: string) => {
@@ -123,11 +138,13 @@ export default function ChatDrawer({ open, onClose }: { open: boolean; onClose: 
   const send = () => {
     const text = draft.trim();
     if (!text) return;
-    const socket = getSocket();
+    const token = typeof window !== 'undefined' ? localStorage.getItem('cinemaai_token') : null;
+    if (!token) return;
+    const socket = ensureSocket(token);
     if (activeRoom) {
-      socket?.emit('room:message', { roomId: activeRoom.id, body: text });
+      socket.emit('room:message', { roomId: activeRoom.id, body: text });
     } else if (activeDmUser) {
-      socket?.emit('dm:send', { toUserId: activeDmUser.id, body: text });
+      socket.emit('dm:send', { toUserId: activeDmUser.id, body: text });
     }
     setDraft('');
   };
@@ -250,7 +267,7 @@ export default function ChatDrawer({ open, onClose }: { open: boolean; onClose: 
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-3">
               {activeRoom && roomMessages.map((m) => (
                 <MessageBubble
-                  key={m.id}
+                  key={String(m.id)}
                   mine={m.user?.id === user?.id}
                   name={m.user?.username || ''}
                   body={m.body}
@@ -259,7 +276,7 @@ export default function ChatDrawer({ open, onClose }: { open: boolean; onClose: 
               ))}
               {activeDmUser && dmMessages.map((m) => (
                 <MessageBubble
-                  key={m.id}
+                  key={String(m.id)}
                   mine={m.sender_id === user?.id}
                   name={activeDmUser.username}
                   body={m.body}
