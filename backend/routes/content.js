@@ -171,13 +171,13 @@ router.get('/search', async (req, res) => {
     const regex = new RegExp(fuzzyPattern || q, 'i');
     
     // Aggregate to group by tmdb_id/mal_id
+    const matchStage = { $or: [{ title: regex }, { original_title: regex }] };
+    if (type !== 'all') {
+      matchStage.type = type === 'anime' ? 'anime' : type;
+    }
+
     const rows = await ContentCache.aggregate([
-      { 
-        $match: { 
-          $or: [{ title: regex }, { original_title: regex }], 
-          type: typeFilter 
-        } 
-      },
+      { $match: matchStage },
       {
         $group: {
           _id: { $cond: [{ $ifNull: ["$tmdb_id", false] }, "$tmdb_id", "$mal_id"] },

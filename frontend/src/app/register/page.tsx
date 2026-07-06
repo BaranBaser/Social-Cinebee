@@ -21,7 +21,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await register(username, email, password);
-      router.push('/');
+      window.location.href = '/';
     } catch (err: any) {
               setError(err?.response?.data?.error || 'Kayıt oluşturulamadı.');
     } finally {

@@ -448,7 +448,7 @@ function SearchResults({ query, type, setType }: { query: string; type: string; 
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
-        {TYPES.map((t) => (
+        {[{ key: 'all', label: 'Tümü' }, ...TYPES].map((t) => (
           <button key={t.key} onClick={() => setType(t.key)} className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
             type === t.key ? 'bg-honey text-ink' : 'bg-white/[0.06] text-muted hover:text-white hover:bg-white/[0.08] border border-white/[0.06]'
           }`}>

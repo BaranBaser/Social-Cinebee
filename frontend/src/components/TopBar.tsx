@@ -62,7 +62,7 @@ export default function TopBar({ onOpenChat, socialCollapsed, setSocialCollapsed
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      router.push(`/?q=${encodeURIComponent(searchQuery.trim())}`);
+      router.push(`/?q=${encodeURIComponent(searchQuery.trim())}&type=all`);
     }
   };
 
