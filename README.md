@@ -1,98 +1,204 @@
-# CinemaAI Social
+🎬 CineBee
 
-Dizi, film ve anime keşfi + sosyal özellikler (üyelik, yorum/puanlama, sohbet, yönetici paneli) barındıran tam bağımsız bir web uygulaması.
+«Film • Dizi • Anime keşfet, puanla, yorum yap ve toplulukla sohbet et.»
 
-## Özellikler
+CineBee, film, dizi ve anime severleri tek platformda buluşturan modern bir sosyal web uygulamasıdır. Gerçek zamanlı sohbet, kullanıcı profilleri, puanlama sistemi ve yönetici paneliyle zengin bir topluluk deneyimi sunar.
 
-- **Üyelik sistemi**: Kayıt ol / giriş yap (JWT tabanlı oturum)
-- **İçerik keşfi**: TMDB (film/dizi) ve Jikan (anime, MyAnimeList) API'lerinden canlı veri
-- **Yorum ve puanlama**: Her içeriğe 1-10 arası puan verme ve yorum yazma
-- **Sohbet**:
-  - Genel ve içerik-bazlı herkese açık sohbet odaları (gerçek zamanlı, Socket.io)
-  - Kullanıcılar arası birebir özel mesajlaşma (DM)
-  - Çevrimiçi durumu gösterimi
-- **Yönetici paneli**: Kullanıcı yönetimi (yönetici yap/kaldır, askıya al, sil), yorum moderasyonu, genel istatistikler
+---
 
-## Teknik yapı
+✨ Özellikler
 
-- **Backend**: Node.js + Express, `node:sqlite` (Node'un yerleşik SQLite modülü — ekstra derleme gerekmez), JWT auth, Socket.io
-- **Frontend**: React (Vite) + Tailwind CSS, react-router-dom, socket.io-client
-- Tek parça dağıtım: frontend derlenip `backend/public` klasörüne konur, backend hem API'yi hem statik dosyaları aynı porttan sunar.
+👤 Kullanıcı Sistemi
 
-> **Not:** Node.js 22.5 veya üzeri gereklidir (yerleşik `node:sqlite` modülü için).
+- Güvenli kayıt ol & giriş yap
+- JWT tabanlı kimlik doğrulama
+- Profil yönetimi
 
-## Kurulum (yerel bilgisayarınızda)
+🎥 İçerik Keşfi
 
-### 1) TMDB API anahtarı alın (ücretsiz)
-https://www.themoviedb.org/settings/api adresinden bir hesap açıp API anahtarınızı alın. Jikan (anime) API'si anahtar gerektirmez.
+- TMDB üzerinden film ve diziler
+- Jikan (MyAnimeList) üzerinden animeler
+- Güncel ve canlı içerik verileri
 
-### 2) Backend'i kurun
+⭐ Puanlama & Yorumlar
 
-```bash
+- 1–10 arası puan verme
+- Yorum paylaşma
+- Topluluk değerlendirmelerini görüntüleme
+
+💬 Gerçek Zamanlı Sohbet
+
+- Genel sohbet odaları
+- İçerik bazlı sohbet odaları
+- Kullanıcılar arası özel mesajlar (DM)
+- Çevrimiçi kullanıcı durumu
+- Socket.io destekli anlık mesajlaşma
+
+🛡️ Yönetici Paneli
+
+- Kullanıcı yönetimi
+- Yönetici yetkisi verme/kaldırma
+- Hesap askıya alma
+- Kullanıcı silme
+- Yorum moderasyonu
+- Sistem istatistikleri
+
+---
+
+🛠️ Teknoloji Yığını
+
+Backend
+
+- Node.js
+- Express.js
+- node:sqlite
+- JWT Authentication
+- Socket.io
+
+Frontend
+
+- React (Vite)
+- Tailwind CSS
+- React Router
+- Socket.io Client
+
+«Tek parça dağıtım: Derlenen React uygulaması "backend/public" klasörüne aktarılır ve Express tarafından aynı port üzerinden servis edilir.»
+
+---
+
+📋 Gereksinimler
+
+- Node.js 22.5+
+- TMDB API Anahtarı
+
+«Jikan API herhangi bir API anahtarı gerektirmez.»
+
+---
+
+🚀 Kurulum
+
+1️⃣ TMDB API Anahtarı
+
+Ücretsiz API anahtarınızı alın:
+
+https://www.themoviedb.org/settings/api
+
+---
+
+2️⃣ Backend
+
 cd backend
 cp .env.example .env
-# .env dosyasını açıp TMDB_API_KEY, JWT_SECRET, ADMIN_EMAIL/ADMIN_PASSWORD alanlarını doldurun
+
 npm install
 npm start
-```
 
-Sunucu `http://localhost:5000` adresinde açılır ve ilk açılışta `.env` dosyasındaki bilgilerle bir **yönetici hesabı** otomatik oluşturur.
+".env" dosyasında aşağıdaki alanları doldurun:
 
-### 3) Frontend'i geliştirme modunda çalıştırın (isteğe bağlı)
+- TMDB_API_KEY
+- JWT_SECRET
+- ADMIN_EMAIL
+- ADMIN_PASSWORD
 
-Backend zaten derlenmiş `frontend`'i `backend/public` içinden sunar, ama geliştirme sırasında canlı yenileme için:
+Sunucu:
 
-```bash
+http://localhost:5000
+
+İlk çalıştırmada yönetici hesabı otomatik oluşturulur.
+
+---
+
+3️⃣ Frontend (Geliştirme)
+
 cd frontend
+
 npm install
 npm run dev
-```
 
-`http://localhost:5173` adresinde açılır ve `/api` + `/socket.io` isteklerini otomatik olarak backend'e (5000 portu) yönlendirir.
+Adres:
 
-### 4) Üretim için derleme
+http://localhost:5173
 
-```bash
+Vite geliştirme sunucusu API ve Socket.io isteklerini otomatik olarak backend'e yönlendirir.
+
+---
+
+4️⃣ Production Build
+
 cd frontend
 npm run build
-```
 
-Bu komut çıktıyı doğrudan `backend/public` klasörüne yazar. Ardından sadece backend'i (`cd backend && npm start`) çalıştırmanız yeterli — tüm site tek bir Node sürecinden sunulur.
+Derlenen dosyalar otomatik olarak:
 
-## Nereye dağıtabilirsiniz (öneri)
+backend/public
 
-En pratik yol: **Railway** veya **Render** gibi tek servisli Node.js barındırma platformları.
+klasörüne aktarılır.
 
-1. Bu klasörü bir GitHub reposuna yükleyin.
-2. Railway/Render'da "yeni servis" oluşturup repoyu bağlayın, **root dizini `backend`** olarak ayarlayın.
-3. Build komutu: `npm install` — Start komutu: `npm start`
-4. Ortam değişkenlerini (.env içeriğini) platformun "Environment Variables" bölümüne girin.
-5. Frontend'i yerel bilgisayarınızda `npm run build` ile derleyip `backend/public` klasörünü de repoya dahil edin (ya da build adımını platform tarafında `cd frontend && npm install && npm run build` olarak tanımlayın).
-6. **Kalıcı disk**: SQLite dosyası (`backend/data.sqlite`) için platformun "persistent volume/disk" özelliğini `backend` klasörüne bağlayın, aksi halde yeniden dağıtımda veriler sıfırlanabilir.
+Daha sonra yalnızca:
 
-Vercel gibi "serverless" platformlar sürekli açık soket bağlantısı (Socket.io) ve dosya tabanlı SQLite ile uyumlu değildir — bu yüzden Railway/Render/bir VPS gibi "her zaman açık" bir Node sürecine ihtiyaç var.
+cd backend
+npm start
 
-## Güvenlik notları
+komutunu çalıştırmanız yeterlidir.
 
-- `.env` dosyanızı asla paylaşmayın veya repoya eklemeyin (`.gitignore` içinde zaten hariç tutulmalı).
-- Üretime almadan önce `JWT_SECRET`'ı uzun, rastgele bir değerle değiştirin.
-- İlk yönetici şifresini (`ADMIN_PASSWORD`) ilk girişten hemen sonra profil ayarlarından güncelleyin.
+---
 
-## Klasör yapısı
+☁️ Dağıtım
 
-```
-cinemaai-social/
-  backend/
-    server.js          # Express + Socket.io giriş noktası
-    db/index.js         # SQLite şeması ve bağlantısı
-    routes/              # auth, content (TMDB/Jikan), comments, chat, admin
-    socket.js            # gerçek zamanlı sohbet mantığı
-    public/              # (derlenmiş frontend buraya kopyalanır)
-  frontend/
-    src/
-      pages/             # Login, Register, Home, ContentDetail, Profile, Admin
-      components/        # Navbar, ContentCard, ChatDrawer, FilmstripRating...
-      context/           # AuthContext
-      lib/               # api.js (axios), socket.js
-```
+Önerilen platformlar:
 
+- Railway
+- Render
+- VPS
+
+Kurulum Adımları
+
+1. Projeyi GitHub'a yükleyin.
+2. Yeni Node.js servisi oluşturun.
+3. Root dizini "backend" olarak ayarlayın.
+4. Environment Variables bölümüne ".env" değerlerini girin.
+5. Frontend'i derleyip "backend/public" klasörünü oluşturun.
+6. SQLite veritabanı için kalıcı disk (Persistent Volume) bağlayın.
+
+«Not: Vercel gibi serverless platformlar Socket.io ve SQLite ile tam uyumlu değildir.»
+
+---
+
+🔒 Güvenlik
+
+- ".env" dosyasını GitHub'a yüklemeyin.
+- Güçlü ve rastgele bir "JWT_SECRET" kullanın.
+- İlk yönetici şifresini giriş yaptıktan sonra değiştirin.
+- "backend/data.sqlite" dosyasını düzenli olarak yedekleyin.
+
+---
+
+📂 Proje Yapısı
+
+cinebee/
+│
+├── backend/
+│   ├── server.js
+│   ├── socket.js
+│   ├── db/
+│   ├── routes/
+│   └── public/
+│
+└── frontend/
+    ├── src/
+    │   ├── pages/
+    │   ├── components/
+    │   ├── context/
+    │   └── lib/
+
+---
+
+❤️ CineBee
+
+Tek platformda keşfet, puanla, yorum yap ve topluluğa katıl.
+
+🍿 Film severler
+📺 Dizi tutkunları
+🌸 Anime hayranları
+
+Hepsi artık CineBee'de.
