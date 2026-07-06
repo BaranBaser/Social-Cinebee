@@ -92,12 +92,46 @@ router.get('/trending', async (req, res) => {
   const offset = (page - 1) * limit;
 
   try {
-    const total = await ContentCache.countDocuments({ type, category: filter });
-    const rows = await ContentCache.find({ type, category: filter })
+    let total = await ContentCache.countDocuments({ type, category: filter });
+    let rows = await ContentCache.find({ type, category: filter })
       .skip(offset)
       .limit(limit)
-      // Mongoose'da siralama yapilmadiginda ekleme sirasina gore donecektir, ama emin olmak icin _id'ye gore siralayabiliriz.
       .sort({ _id: 1 });
+
+    // Anime fallback: Jikan 504 oldugunda populer veriden turet
+    if (total === 0 && type === 'anime') {
+      let fallbackSort = {};
+      let fallbackFilter = { type: 'anime' };
+
+      if (filter === 'trending') {
+        fallbackSort = { synced_at: -1 };
+      } else if (filter === 'new') {
+        fallbackSort = { year: -1 };
+      } else if (filter === 'top_rated') {
+        fallbackSort = { rating: -1 };
+      } else if (filter === 'most_watched') {
+        fallbackSort = { rating: -1, year: -1 };
+      }
+
+      const countPipeline = [
+        { $match: { type: 'anime' } },
+        { $group: { _id: '$mal_id' } },
+        { $count: 'total' }
+      ];
+      const countResult = await ContentCache.aggregate(countPipeline);
+      total = countResult[0]?.total || 0;
+
+      const pipeline = [
+        { $match: { type: 'anime' } },
+        { $sort: filter === 'trending' ? { synced_at: -1 } : filter === 'new' ? { year: -1 } : { rating: -1, year: -1 } },
+        { $group: { _id: '$mal_id', doc: { $first: '$$ROOT' } } },
+        { $replaceRoot: { newRoot: '$doc' } },
+        { $sort: filter === 'trending' ? { synced_at: -1 } : filter === 'new' ? { year: -1 } : { rating: -1, year: -1 } },
+        { $skip: offset },
+        { $limit: limit }
+      ];
+      rows = await ContentCache.aggregate(pipeline);
+    }
 
     if (total > 0) {
       return res.json({
@@ -116,7 +150,7 @@ router.get('/trending', async (req, res) => {
     });
   } catch (e) {
     console.error('Trending error:', e);
-    res.status(500).json({ error: 'Icerik alinamadi.', details: e.message, stack: e.stack });
+    res.status(500).json({ error: 'Icerik alinamadi.' });
   }
 });
 

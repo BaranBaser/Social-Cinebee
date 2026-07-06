@@ -24,33 +24,35 @@ export default function TopBar({ onOpenChat }: TopBarProps) {
 
   return (
     <header className="sticky top-0 z-20 bg-ink/80 backdrop-blur-xl border-b border-white/[0.06]">
-      <div className="h-14 flex items-center justify-between px-6 gap-4">
-        <div className="flex-1 flex justify-center">
-          <form onSubmit={handleSearch} className="w-full max-w-md">
-            <div className="flex items-center gap-2 bg-white/[0.06] rounded-full px-4 py-2 border border-white/[0.06] hover:border-white/[0.1] transition-colors focus-within:border-honey/40">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-              </svg>
-              <input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Film, dizi, anime ara..."
-                className="bg-transparent text-sm outline-none flex-1 text-white placeholder:text-muted"
-              />
-            </div>
-          </form>
-        </div>
+      <div className="h-14 grid grid-cols-[1fr_auto_1fr] items-center px-6 gap-4">
+        <div />
 
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={() => router.push('/?new=1')}
-            className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-muted hover:text-white"
-            title="Yeni Ekle"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" x2="12" y1="5" y2="19" /><line x1="5" x2="19" y1="12" y2="12" />
+        <form onSubmit={handleSearch} className="w-80">
+          <div className="flex items-center gap-2 bg-white/[0.06] rounded-full px-4 py-2 border border-white/[0.06] hover:border-white/[0.1] transition-colors focus-within:border-honey/40">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
             </svg>
-          </button>
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Film, dizi, anime ara..."
+              className="bg-transparent text-sm outline-none flex-1 text-white placeholder:text-muted"
+            />
+          </div>
+        </form>
+
+        <div className="flex items-center justify-end gap-2">
+          {user && (
+            <button
+              onClick={() => router.push('/?new=1')}
+              className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-muted hover:text-white"
+              title="Yeni Ekle"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" x2="12" y1="5" y2="19" /><line x1="5" x2="19" y1="12" y2="12" />
+              </svg>
+            </button>
+          )}
 
           <button
             className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-muted hover:text-white relative"
@@ -62,15 +64,17 @@ export default function TopBar({ onOpenChat }: TopBarProps) {
             <span className="absolute top-1 right-1 w-2 h-2 bg-honey rounded-full" />
           </button>
 
-          <button
-            onClick={onOpenChat}
-            className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-muted hover:text-white"
-            title="Mesajlar"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" />
-            </svg>
-          </button>
+          {user && (
+            <button
+              onClick={onOpenChat}
+              className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors text-muted hover:text-white"
+              title="Mesajlar"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" />
+              </svg>
+            </button>
+          )}
 
           {user ? (
             <div className="relative ml-1">

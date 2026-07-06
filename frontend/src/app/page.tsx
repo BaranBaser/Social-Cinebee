@@ -58,6 +58,7 @@ function HomeInner() {
 
   const loadHomeData = useCallback(async () => {
     setLoadingHome(true);
+    console.log('[CINEBEE] loadHomeData called, type:', type);
     try {
       const [popRes, trendRes, newRes, topRes, watchRes] = await Promise.all([
         api.get('/content/trending', { params: { type, filter: 'popular', page: 1 } }),
@@ -68,6 +69,7 @@ function HomeInner() {
       ]);
 
       const popResults = popRes.data.results || [];
+      console.log('[CINEBEE] Results:', popResults.length, 'popular items');
       if (popResults.length > 0) setFeatured(popResults[0]);
       setPopular(popResults.slice(1, 13));
       setTrending((trendRes.data.results || []).slice(0, 12));
@@ -75,7 +77,7 @@ function HomeInner() {
       setTopRated((topRes.data.results || []).slice(0, 12));
       setMostWatched((watchRes.data.results || []).slice(0, 12));
     } catch (err) {
-      console.error('loadHomeData error:', err);
+      console.error('[CINEBEE] loadHomeData error:', err);
     } finally {
       setLoadingHome(false);
       setLoading(false);

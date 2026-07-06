@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Star } from 'lucide-react';
+
 
 interface ContentItem {
   key: string;
@@ -51,7 +51,7 @@ export default function ContentCard({ item, badge }: { item: ContentItem; badge?
 
         {!!item.rating && (
           <span className="absolute top-2.5 right-2.5 flex items-center gap-1 text-[11px] bg-black/70 backdrop-blur-sm text-white px-2 py-1 rounded-lg font-medium">
-            <Star size={11} className="text-honey fill-honey" />
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="#f5c518" stroke="#f5c518" strokeWidth="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
             {Number(item.rating).toFixed(1)}
           </span>
         )}
