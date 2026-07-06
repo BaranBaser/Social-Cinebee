@@ -6,8 +6,6 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import ImageUploadModal from '@/components/ImageUploadModal';
-
 interface ProfileData {
   id: string;
   username: string;
@@ -70,9 +68,6 @@ function ProfileContent() {
   const [bannerUrl, setBannerUrl] = useState(user?.banner_url || '');
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadModal, setUploadModal] = useState<'avatar' | 'banner' | null>(null);
-
   useEffect(() => {
     if (user) {
       setBio(user.bio || '');
@@ -127,28 +122,6 @@ function ProfileContent() {
   }
   async function removeFriend() {
     try { await api.delete(`/social/friends/${userIdParam}`); setFriendStatus('none'); } catch {}
-  }
-
-  async function uploadFile(file: File, type: 'avatar' | 'banner') {
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const { data } = await api.post(`/upload/${type}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      if (data.ok) {
-        const bustUrl = `${data.url}?t=${Date.now()}`;
-        if (type === 'avatar') {
-          setAvatarUrl(bustUrl);
-          updateUser({ ...user, avatar_url: bustUrl });
-        } else {
-          setBannerUrl(bustUrl);
-          updateUser({ ...user, banner_url: bustUrl });
-        }
-        setUploadModal(null);
-      }
-    } catch {} finally { setUploading(false); }
   }
 
   const saveProfile = async () => {
@@ -209,26 +182,9 @@ function ProfileContent() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
-      {/* Hidden file inputs */}
-      <ImageUploadModal
-        open={uploadModal === 'avatar'}
-        onClose={() => setUploadModal(null)}
-        onUpload={(file) => uploadFile(file, 'avatar')}
-        type="avatar"
-        uploading={uploading}
-      />
-      <ImageUploadModal
-        open={uploadModal === 'banner'}
-        onClose={() => setUploadModal(null)}
-        onUpload={(file) => uploadFile(file, 'banner')}
-        type="banner"
-        uploading={uploading}
-      />
-
       {/* Banner */}
       <div
-        className="relative rounded-2xl overflow-hidden h-48 mb-0 group cursor-pointer"
-        onClick={() => isOwnProfile && setUploadModal('banner')}
+        className="relative rounded-2xl overflow-hidden h-48 mb-0"
       >
         {displayBanner ? (
           <img src={displayBanner} alt="" className="absolute inset-0 w-full h-full object-cover" />
@@ -238,14 +194,6 @@ function ProfileContent() {
             <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 70% 30%, rgba(245,197,24,0.15), transparent 60%)' }} />
           </>
         )}
-        {isOwnProfile && (
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 bg-black/60 backdrop-blur-sm px-4 py-2 rounded-xl">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              <span className="text-xs text-white font-medium">{uploading ? 'Yukleniyor...' : 'Banner Yükle'}</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Profile Header */}
@@ -254,8 +202,7 @@ function ProfileContent() {
           {/* Avatar */}
           <div className="relative shrink-0 group">
             <div
-              className="w-28 h-28 rounded-full bg-surface2 border-4 border-ink overflow-hidden flex items-center justify-center shadow-xl shadow-black/30 cursor-pointer"
-              onClick={() => isOwnProfile && setUploadModal('avatar')}
+              className="w-28 h-28 rounded-full bg-surface2 border-4 border-ink overflow-hidden flex items-center justify-center shadow-xl shadow-black/30"
             >
               {displayAvatar ? (
                 <img src={displayAvatar} alt="" className="w-full h-full object-cover" />
@@ -264,14 +211,6 @@ function ProfileContent() {
               )}
             </div>
             <span className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-4 border-ink rounded-full" />
-            {isOwnProfile && (
-              <div
-                className="absolute inset-0 w-28 h-28 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-200 cursor-pointer"
-                onClick={() => setUploadModal('avatar')}
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              </div>
-            )}
           </div>
 
           {/* Info */}
@@ -317,17 +256,36 @@ function ProfileContent() {
           )}
         </div>
 
-        {/* Bio */}
+        {/* Bio and URLs */}
         {isOwnProfile ? (
-          <div className="mt-4">
+          <div className="mt-4 space-y-3">
             <textarea
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               onBlur={saveProfile}
-              rows={3}
-              placeholder="Hakkinda bir seyler yaz..."
+              rows={2}
+              placeholder="Hakkında bir seyler yaz..."
               className="w-full bg-ink border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none focus:border-honey/40 transition-colors resize-none"
             />
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="text"
+                value={avatarUrl}
+                onChange={(e) => setAvatarUrl(e.target.value)}
+                onBlur={saveProfile}
+                placeholder="Profil Resmi URL"
+                className="w-full bg-ink border border-white/[0.08] rounded-xl px-4 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-honey/40 transition-colors"
+              />
+              <input
+                type="text"
+                value={bannerUrl}
+                onChange={(e) => setBannerUrl(e.target.value)}
+                onBlur={saveProfile}
+                placeholder="Banner (Kapak) URL"
+                className="w-full bg-ink border border-white/[0.08] rounded-xl px-4 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-honey/40 transition-colors"
+              />
+            </div>
+            {saved && <p className="text-xs text-green-400">Degisiklikler kaydedildi.</p>}
           </div>
         ) : displayBio ? (
           <p className="text-sm text-gray-300 leading-relaxed mt-4">{displayBio}</p>
