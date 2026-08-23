@@ -168,21 +168,31 @@ function HomeInner() {
   const loadHomeData = useCallback(async () => {
     setLoadingHome(true);
     try {
-      const [popRes, trendRes, newRes, topRes, watchRes] = await Promise.all([
-        api.get('/content/trending', { params: { type, filter: 'popular', page: 1 } }),
-        api.get('/content/trending', { params: { type, filter: 'trending', page: 1 } }),
-        api.get('/content/trending', { params: { type, filter: 'new', page: 1 } }),
-        api.get('/content/trending', { params: { type, filter: 'top_rated', page: 1 } }),
-        api.get('/content/trending', { params: { type, filter: 'most_watched', page: 1 } }),
+      const fetchSection = async (filter: string) => {
+        try {
+          const res = await api.get('/content/trending', { params: { type, filter, page: 1 } });
+          return res.data.results || [];
+        } catch {
+          return [];
+        }
+      };
+
+      const [popResults, trendResults, newResults, topResults, watchResults] = await Promise.all([
+        fetchSection('popular'),
+        fetchSection('trending'),
+        fetchSection('new'),
+        fetchSection('top_rated'),
+        fetchSection('most_watched'),
       ]);
 
-      const popResults = popRes.data.results || [];
-      if (popResults.length > 0) setFeatured(popResults[0]);
-      setPopular(popResults.slice(1, 13));
-      setTrending((trendRes.data.results || []).slice(0, 12));
-      setNewItems((newRes.data.results || []).slice(0, 12));
-      setTopRated((topRes.data.results || []).slice(0, 12));
-      setMostWatched((watchRes.data.results || []).slice(0, 12));
+      if (popResults.length > 0) {
+        setFeatured(popResults[0]);
+        setPopular(popResults.slice(1, 13));
+      }
+      if (trendResults.length > 0) setTrending(trendResults.slice(0, 12));
+      if (newResults.length > 0) setNewItems(newResults.slice(0, 12));
+      if (topResults.length > 0) setTopRated(topResults.slice(0, 12));
+      if (watchResults.length > 0) setMostWatched(watchResults.slice(0, 12));
     } catch (err) {
       console.error('loadHomeData error:', err);
     } finally {

@@ -84,6 +84,8 @@ function normalizeJikan(item) {
   };
 }
 
+const { FALLBACK_CONTENT, getTrendingFallback } = require('../contentData');
+
 // GET /api/content/trending
 router.get('/trending', async (req, res) => {
   const type = req.query.type || 'movie';
@@ -147,15 +149,10 @@ router.get('/trending', async (req, res) => {
       });
     }
 
-    return res.json({
-      results: [],
-      hasMore: false,
-      total: 0,
-      source: 'cache',
-    });
+    return res.json(getTrendingFallback(type, filter, page, limit));
   } catch (e) {
-    console.error('Trending error:', e);
-    res.status(500).json({ error: 'Icerik alinamadi.' });
+    console.error('Trending error, returning fallback:', e.message);
+    return res.json(getTrendingFallback(type, filter, page, limit));
   }
 });
 
